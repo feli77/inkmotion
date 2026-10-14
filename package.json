@@ -1,0 +1,24 @@
+{
+  "name": "inkmotion",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "playwright test",
+    "deploy": "npm run build && wrangler deploy",
+    "worker:dev": "npm run build && wrangler dev",
+    "deploy:check": "npm run build && wrangler deploy --dry-run"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "typescript": "7.0.2",
+    "vite": "8.3.4",
+    "wrangler": "4.151.0"
+  }
+}
