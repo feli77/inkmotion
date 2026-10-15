@@ -101,6 +101,14 @@ for (const width of [1440, 900, 375, 320]) {
     await expect(replay).toHaveAccessibleName('重新播放');
     await expect(replay).toBeEnabled();
     const paperBox = (await page.locator('#paper').boundingBox())!;
+    const paperArea = page.locator('.paper-area');
+    const paperAreaBox = (await paperArea.boundingBox())!;
+    expect(paperAreaBox.x).toBeCloseTo(previewBox.x + 1, 1);
+    expect(paperAreaBox.width).toBeCloseTo(previewBox.width - 2, 1);
+    expect(paperBox.x).toBeCloseTo(paperAreaBox.x, 1);
+    expect(paperBox.y).toBeCloseTo(paperAreaBox.y, 1);
+    expect(paperBox.width).toBeCloseTo(await paperArea.evaluate(element => element.clientWidth), 1);
+    expect(paperBox.height).toBeGreaterThanOrEqual(paperAreaBox.height);
     const replayBox = (await replay.boundingBox())!;
     const drawingBox = (await page.locator('#drawing').boundingBox())!;
     expect(replayBox.x + replayBox.width).toBeCloseTo(paperBox.x + paperBox.width - 12, 1);
