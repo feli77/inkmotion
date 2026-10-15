@@ -30,7 +30,7 @@ main { padding-bottom: 30px; }
 .brand { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; font-size: 23px; font-weight: 650; letter-spacing: -.8px; }
 .brand > svg { width: 33px; height: 33px; background: var(--accent); color: var(--surface); border-radius: 10px; padding: 4px; }
 .brand-dot { color: var(--accent); }
-.intro { margin: 16px 0 27px; }
+.intro { margin: 0 0 27px; }
 h1 { margin: 0; font-size: 22px; font-weight: 550; letter-spacing: .4px; line-height: 1.5; }
 .workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
 .editor { border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: 0 4px 18px #00000003; overflow: hidden; }
@@ -97,7 +97,6 @@ h2 { margin: 0; font-size: 13px; font-weight: 550; white-space: nowrap; }
 .drawing > svg { max-width: 100%; width: 100%; height: auto; }
 .empty-state { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; padding: 24px; text-align: center; color: var(--muted); font-size: 13px; }
 #retry { border: 1px solid var(--line); border-radius: 7px; background: var(--surface); padding: 6px 12px; font-size: 12px; }
-@media (min-width: 1400px) { main { padding-top: 25px; } }
 @media (max-width: 1050px) {
   .header, main { padding-inline: 24px; }
   .workspace { gap: 18px; }
@@ -110,7 +109,7 @@ h2 { margin: 0; font-size: 13px; font-weight: 550; white-space: nowrap; }
 @media (max-width: 760px) {
   .header { height: 78px; }
   .header, main { padding-inline: 20px; }
-  .intro { margin: 16px 0 22px; }
+  .intro { margin: 0 0 22px; }
   h1 { font-size: 18px; }
   .text-panel { padding: 22px 20px 20px; }
   .settings-grid { padding: 22px 20px 24px; gap: 24px; }
