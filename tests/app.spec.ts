@@ -65,7 +65,8 @@ test('empty and unsupported input prevent exporting; draft survives reload', asy
 
 test('mobile has no horizontal overflow and transparent export preserves the background choice', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
-  await page.locator('summary').click();
+  await page.locator('#lineHeight').fill('2');
+  await expect(page.locator('#lineHeight-value')).toHaveText('2.0×');
   await page.locator('#background').selectOption('transparent');
   await page.locator('#alignment').selectOption('center');
   await page.locator('#loop').check();
@@ -83,19 +84,20 @@ for (const width of [1440, 900, 375, 320]) {
     const editor = page.locator('.editor');
     const preview = page.locator('.preview-panel');
 
-    for (const expanded of [false, true]) {
-      if (expanded) await page.locator('summary').click();
-      const editorBox = (await editor.boundingBox())!;
-      const previewBox = (await preview.boundingBox())!;
-      expect(previewBox.y).toBeGreaterThan(editorBox.y + editorBox.height);
-      expect(previewBox.x).toBeCloseTo(editorBox.x, 1);
-      expect(previewBox.width).toBeCloseTo(editorBox.width, 1);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-      for (const control of await editor.locator('textarea, input:visible, select:visible').all()) {
-        const box = (await control.boundingBox())!;
-        expect(box.x).toBeGreaterThanOrEqual(editorBox.x);
-        expect(box.x + box.width).toBeLessThanOrEqual(editorBox.x + editorBox.width);
-      }
+    await expect(editor.locator('details, summary')).toHaveCount(0);
+    for (const id of ['lineHeight', 'alignment', 'background', 'loop']) {
+      await expect(editor.locator(`#${id}`)).toBeVisible();
+    }
+    const editorBox = (await editor.boundingBox())!;
+    const previewBox = (await preview.boundingBox())!;
+    expect(previewBox.y).toBeGreaterThan(editorBox.y + editorBox.height);
+    expect(previewBox.x).toBeCloseTo(editorBox.x, 1);
+    expect(previewBox.width).toBeCloseTo(editorBox.width, 1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    for (const control of await editor.locator('textarea, input:visible, select:visible').all()) {
+      const box = (await control.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(editorBox.x);
+      expect(box.x + box.width).toBeLessThanOrEqual(editorBox.x + editorBox.width);
     }
 
     await page.locator('#progress').fill('1');

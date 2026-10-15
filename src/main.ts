@@ -32,17 +32,15 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         <div class="control"><div class="label-row"><label for="speed">${t('settings.speed')}</label><output for="speed" id="speed-value"></output></div><input id="speed" type="range" min="0.25" max="3" step="0.25" /></div>
         <div class="control"><div class="label-row"><label for="fontSize">${t('settings.size')}</label><output for="fontSize" id="fontSize-value"></output></div><input id="fontSize" type="range" min="28" max="96" step="1" /></div>
         <div class="control"><div class="label-row"><label for="strokeWidth">${t('settings.stroke')}</label><output for="strokeWidth" id="strokeWidth-value"></output></div><input id="strokeWidth" type="range" min="0.8" max="4" step="0.1" /></div>
+        <div class="control"><div class="label-row"><label for="lineHeight">${t('settings.lineHeight')}</label><output for="lineHeight" id="lineHeight-value"></output></div><input id="lineHeight" type="range" min="1.3" max="2.4" step="0.05" /></div>
+        <div class="field"><label for="alignment">${t('settings.alignment')}</label><select id="alignment"><option value="left">${t('settings.left')}</option><option value="center">${t('settings.center')}</option><option value="right">${t('settings.right')}</option></select></div>
+        <div class="field"><label for="background">${t('settings.background')}</label><select id="background"><option value="#ffffff">${t('settings.white')}</option><option value="transparent">${t('settings.transparent')}</option></select></div>
+        <label class="checkbox-label" for="loop"><input id="loop" type="checkbox" />${t('settings.loop')}</label>
         <div class="color-field"><label for="color">${t('settings.color')}</label><div class="colors">
           ${['#a8e6cf', '#dcedc1', '#ffd3b6', '#ffaaa5', '#ff677d'].map(color => `<button type="button" class="swatch" data-color="${color}" style="--swatch:${color}" aria-label="${t('settings.color')} ${color}" aria-pressed="false"></button>`).join('')}
           <div class="custom-color"><input id="color" type="color" aria-label="${t('settings.customColor')}" /><span aria-hidden="true">+</span></div>
           <output id="color-value" for="color"></output>
         </div></div>
-        <details class="advanced"><summary>${t('settings.more')}<span aria-hidden="true">⌄</span></summary><div class="advanced-body">
-          <div class="control"><div class="label-row"><label for="lineHeight">${t('settings.lineHeight')}</label><output for="lineHeight" id="lineHeight-value"></output></div><input id="lineHeight" type="range" min="1.3" max="2.4" step="0.05" /></div>
-          <div class="field"><label for="alignment">${t('settings.alignment')}</label><select id="alignment"><option value="left">${t('settings.left')}</option><option value="center">${t('settings.center')}</option><option value="right">${t('settings.right')}</option></select></div>
-          <div class="field"><label for="background">${t('settings.background')}</label><select id="background"><option value="#ffffff">${t('settings.white')}</option><option value="transparent">${t('settings.transparent')}</option></select></div>
-          <label class="checkbox-label" for="loop"><input id="loop" type="checkbox" />${t('settings.loop')}</label>
-        </div></details>
       </section>
       <section class="preview-panel" aria-labelledby="preview-title">
         <div class="preview-header"><div><h2 id="preview-title">${t('preview.label')}</h2><span id="status" class="preview-status" role="status">${t('preview.loading')}</span></div>
