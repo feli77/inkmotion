@@ -154,6 +154,8 @@ test('supports keyboard navigation, focus return and outside dismissal', async (
   await expect(page.locator('#replay')).toBeFocused();
   await spanishToggle.click();
   await page.keyboard.press('Shift+Tab');
+  await expect(page.locator('#theme-toggle')).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
   await expect(page.locator('.brand')).toBeFocused();
   await expect(page.locator('#language-menu')).toBeHidden();
 });

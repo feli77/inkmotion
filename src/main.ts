@@ -3,13 +3,19 @@ import { createScene, loadFont, Player, renderScene } from './engine';
 import { downloadExport, getVideoMimeType } from './export';
 import type { ExportMode } from './export';
 import { fonts } from './fonts';
-import { icons, selectChevron } from './icons';
+import { getSelectChevron, icons } from './icons';
 import { getLocale, getPreferredLocale, locales, setLocale, t } from './i18n';
 import type { MessageKey } from './i18n';
 import type { FontData, RenderSettings, Scene } from './types';
 
 setLocale(getPreferredLocale(), false);
-document.documentElement.style.setProperty('--select-chevron', selectChevron);
+const themeStorageKey = 'inkmotion.theme.v1';
+const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
+let preferredTheme: 'light' | 'dark' | undefined;
+try {
+  const saved = localStorage.getItem(themeStorageKey);
+  if (saved === 'light' || saved === 'dark') preferredTheme = saved;
+} catch { /* Follow the system theme when storage is unavailable. */ }
 
 const numericSettings = {
   fontSize: { label: 'settings.size', min: 28, max: 96, step: 1, unit: 'px' },
@@ -42,10 +48,13 @@ function normalizeNumericValue(key: NumericSetting, value: number): number {
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <header class="header">
     <a class="brand" href="./" aria-label="InkMotion">${icons.pen}<span>InkMotion<span class="brand-dot">.</span></span></a>
-    <div class="language-switcher">
-      <button id="language-toggle" class="language-toggle" type="button" aria-haspopup="menu" aria-controls="language-menu" aria-expanded="false" data-i18n-aria-label="language.label" data-i18n-title="language.label">${icons.languages}</button>
-      <div id="language-menu" class="language-menu" role="menu" aria-labelledby="language-toggle" hidden>
-        ${locales.map(locale => `<button type="button" role="menuitemradio" aria-checked="${locale.code === getLocale()}" tabindex="-1" data-locale="${locale.code}" lang="${locale.code}"><span>${locale.name}</span>${icons.check}</button>`).join('')}
+    <div class="header-actions">
+      <button id="theme-toggle" class="header-control" type="button"></button>
+      <div class="language-switcher">
+        <button id="language-toggle" class="header-control" type="button" aria-haspopup="menu" aria-controls="language-menu" aria-expanded="false" data-i18n-aria-label="language.label" data-i18n-title="language.label">${icons.languages}</button>
+        <div id="language-menu" class="language-menu" role="menu" aria-labelledby="language-toggle" hidden>
+          ${locales.map(locale => `<button type="button" role="menuitemradio" aria-checked="${locale.code === getLocale()}" tabindex="-1" data-locale="${locale.code}" lang="${locale.code}"><span>${locale.name}</span>${icons.check}</button>`).join('')}
+        </div>
       </div>
     </div>
   </header>
@@ -112,6 +121,29 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 `;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+const themeToggle = $<HTMLButtonElement>('theme-toggle');
+
+function updateTheme(): void {
+  const theme = preferredTheme ?? (systemTheme.matches ? 'dark' : 'light');
+  document.documentElement.dataset.theme = theme;
+  themeToggle.innerHTML = theme === 'dark' ? icons.sun : icons.moon;
+  const label = t(theme === 'dark' ? 'theme.light' : 'theme.dark');
+  themeToggle.setAttribute('aria-label', label);
+  themeToggle.title = label;
+  const style = getComputedStyle(document.documentElement);
+  document.documentElement.style.setProperty('--select-chevron', getSelectChevron(style.getPropertyValue('--muted').trim()));
+  document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute('content', style.getPropertyValue('--background').trim());
+}
+
+themeToggle.addEventListener('click', () => {
+  preferredTheme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  try { localStorage.setItem(themeStorageKey, preferredTheme); } catch { /* Theme switching still works without storage. */ }
+  updateTheme();
+});
+systemTheme.addEventListener('change', () => {
+  if (!preferredTheme) updateTheme();
+});
+
 const textInput = $<HTMLTextAreaElement>('text');
 const fontInput = $<HTMLSelectElement>('font');
 const drawing = $('drawing');
@@ -247,6 +279,7 @@ function refreshMessages(): void {
 }
 
 function localizeInterface(): void {
+  updateTheme();
   for (const attribute of ['textContent', 'aria-label', 'placeholder', 'title']) {
     const marker = attribute === 'textContent' ? 'data-i18n' : `data-i18n-${attribute}`;
     document.querySelectorAll<HTMLElement>(`[${marker}]`).forEach(element => {
