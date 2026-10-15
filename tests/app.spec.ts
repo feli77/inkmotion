@@ -36,7 +36,7 @@ test('editing updates preview, settings, playback and SVG downloads', async ({ p
   expect(data).toContain('<animate');
   expect(data).toContain('Hello, InkMotion!');
   expect(data).toContain('stroke="#ff677d"');
-  expect(data).toMatch(/<rect[^>]+fill="#ffffff"/);
+  expect(data).not.toContain('<rect');
   expect(data).not.toContain('<script');
   const staticEvent = page.waitForEvent('download');
   await page.locator('#export-static').click();
@@ -330,7 +330,7 @@ test('mobile has no horizontal overflow and transparent export preserves the bac
   await expect(page.locator('#export')).toBeEnabled();
   await page.locator('#lineHeight').fill('2');
   await expect(page.locator('#lineHeight-value')).toHaveValue('2');
-  await page.locator('#background').selectOption('transparent');
+  await page.locator('#background-palette [data-color="transparent"]').click();
   await page.locator('#alignment').selectOption('center');
   await page.locator('#loop').check();
   await expect(page.locator('#export')).toBeEnabled();
@@ -358,8 +358,8 @@ for (const width of [1440, 900, 761, 760, 375, 320]) {
       return [style.backgroundColor, style.color, style.border, style.borderRadius, style.fontFamily, style.fontSize, style.padding, element.getBoundingClientRect().height];
     }));
     for (const appearance of valueAppearances) expect(appearance).toEqual(valueAppearances[0]);
-    const colorCircleBox = (await editor.locator('.custom-color > span').boundingBox())!;
-    const colorPlusBox = await editor.locator('.custom-color svg').evaluate((svg: SVGSVGElement) => {
+    const colorCircleBox = (await editor.locator('#color-field .custom-color > span').boundingBox())!;
+    const colorPlusBox = await editor.locator('#color-field .custom-color svg').evaluate((svg: SVGSVGElement) => {
       const bounds = svg.getBBox();
       const matrix = svg.getScreenCTM()!;
       const start = new DOMPoint(bounds.x, bounds.y).matrixTransform(matrix);
@@ -380,7 +380,7 @@ for (const width of [1440, 900, 761, 760, 375, 320]) {
       await expect(surface).toHaveCSS('border-top-width', '0px');
       await expect(surface).toHaveCSS('box-shadow', 'none');
     }
-    await expect(page.locator('#drawing > svg > rect')).toBeHidden();
+    await expect(page.locator('#drawing > svg > rect')).toHaveCount(0);
     await expect(page.locator('#status')).toBeEmpty();
     await expect(preview.locator('#play, #progress, #time, .transport')).toHaveCount(0);
     const replay = page.locator('#replay');

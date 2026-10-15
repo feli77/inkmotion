@@ -26,7 +26,7 @@ async function ringOffset(button: Locator): Promise<number> {
 }
 
 test('saves only the committed picker color, deduplicates it and restores it after reload', async ({ page }) => {
-  const swatches = page.locator('.swatch');
+  const swatches = page.locator('#palette .swatch');
   const picker = page.locator('#color');
   await expect(page.locator('#save-color, #edit-palette, .swatch-remove')).toHaveCount(0);
   for (const color of ['#123456', '#234567', '#58caa1']) {
@@ -41,36 +41,36 @@ test('saves only the committed picker color, deduplicates it and restores it aft
   await picker.dispatchEvent('change');
   await expect(swatches).toHaveCount(6);
   expect(await drawing.evaluate(element => element === document.querySelector('#drawing > svg'))).toBe(true);
-  await expect(page.locator('.swatch[data-color="#58caa1"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#palette .swatch[data-color="#58caa1"]')).toHaveAttribute('aria-pressed', 'true');
   await picker.dispatchEvent('change');
   await expect(swatches).toHaveCount(6);
   await page.reload();
   await expect(swatches).toHaveCount(6);
   await expect(page.locator('#color-value')).toHaveValue('#58CAA1');
-  await expect(page.locator('.swatch[data-color="#123456"]')).toHaveCount(0);
+  await expect(page.locator('#palette .swatch[data-color="#123456"]')).toHaveCount(0);
 });
 
 test('commits typed hex colors without interrupting a click on another swatch', async ({ page }) => {
   const hex = page.locator('#color-value');
   await hex.fill('#aBc');
-  await expect(page.locator('.swatch')).toHaveCount(5);
+  await expect(page.locator('#palette .swatch')).toHaveCount(5);
   await hex.press('Enter');
-  await expect(page.locator('.swatch[data-color="#aabbcc"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#palette .swatch[data-color="#aabbcc"]')).toHaveAttribute('aria-pressed', 'true');
   await hex.fill('AABBCC');
   await hex.press('Tab');
-  await expect(page.locator('.swatch')).toHaveCount(6);
+  await expect(page.locator('#palette .swatch')).toHaveCount(6);
   await hex.fill('#12');
   await hex.press('Tab');
-  await expect(page.locator('.swatch')).toHaveCount(6);
+  await expect(page.locator('#palette .swatch')).toHaveCount(6);
   await hex.fill('#243042');
-  await page.locator('.swatch[data-color="#a8e6cf"]').click();
+  await page.locator('#palette .swatch[data-color="#a8e6cf"]').click();
   await expect(hex).toHaveValue('#A8E6CF');
-  await expect(page.locator('.swatch[data-color="#243042"]')).toHaveCount(1);
+  await expect(page.locator('#palette .swatch[data-color="#243042"]')).toHaveCount(1);
   await expect(page.locator('#drawing > svg > g')).toHaveAttribute('stroke', '#a8e6cf');
 });
 
 test('scales on hover, returns to original size on press and rebounds on release', async ({ page }) => {
-  const button = page.locator('.swatch').first();
+  const button = page.locator('#palette .swatch').first();
   const scale = () => button.evaluate(element => Number.parseFloat(getComputedStyle(element).transform.split('(')[1]));
   await button.hover();
   await expect.poll(scale).toBeGreaterThan(1.1);
@@ -86,7 +86,7 @@ test('scales on hover, returns to original size on press and rebounds on release
 });
 
 test('shows a centered cross and clockwise inner ring, then smoothly reverses an unfinished hold', async ({ page }) => {
-  const button = page.locator('.swatch').first();
+  const button = page.locator('#palette .swatch').first();
   await pressSwatch(page, button);
   await expect(button).toHaveClass(/is-deleting/);
   await expect(button.locator('.swatch-delete')).toHaveCSS('opacity', '1');
@@ -104,42 +104,42 @@ test('shows a centered cross and clockwise inner ring, then smoothly reverses an
   await expect.poll(() => ringOffset(button)).toBe(1);
   await expect(button).not.toHaveClass(/is-deleting/);
   await page.waitForTimeout(1050);
-  await expect(page.locator('.swatch')).toHaveCount(5);
+  await expect(page.locator('#palette .swatch')).toHaveCount(5);
   await expect(page.locator('#color-value')).toHaveValue('#171717');
 });
 
 test('deletes on a completed hold, suppresses the release click and preserves an empty palette', async ({ page }) => {
   await page.evaluate(() => localStorage.setItem('inkmotion.palette.v1', JSON.stringify(['#a8e6cf', '#dcedc1'])));
   await page.reload();
-  const first = page.locator('.swatch[data-color="#a8e6cf"]');
+  const first = page.locator('#palette .swatch[data-color="#a8e6cf"]');
   await first.click();
   await expect(page.locator('#export')).toBeEnabled();
   const drawing = (await page.locator('#drawing > svg').elementHandle())!;
   await removeSwatch(page, first);
   await expect(page.locator('#color-value')).toHaveValue('#A8E6CF');
-  await expect(page.locator('.swatch')).toHaveCount(1);
+  await expect(page.locator('#palette .swatch')).toHaveCount(1);
   expect(await drawing.evaluate(element => element === document.querySelector('#drawing > svg'))).toBe(true);
   await page.reload();
-  await expect(page.locator('.swatch')).toHaveCount(1);
-  await removeSwatch(page, page.locator('.swatch'));
+  await expect(page.locator('#palette .swatch')).toHaveCount(1);
+  await removeSwatch(page, page.locator('#palette .swatch'));
   await expect(page.locator('#color')).toBeFocused();
   await expect(page.locator('#color-value')).toHaveValue('#A8E6CF');
   await page.reload();
-  await expect(page.locator('.swatch')).toHaveCount(0);
+  await expect(page.locator('#palette .swatch')).toHaveCount(0);
   const hex = page.locator('#color-value');
   await hex.focus();
   await hex.press('Tab');
-  await expect(page.locator('.swatch')).toHaveCount(0);
+  await expect(page.locator('#palette .swatch')).toHaveCount(0);
   await hex.fill('#12');
   await hex.press('Escape');
   await hex.press('Tab');
-  await expect(page.locator('.swatch')).toHaveCount(0);
+  await expect(page.locator('#palette .swatch')).toHaveCount(0);
   await page.locator('#color').fill('#123456');
-  await expect(page.locator('.swatch')).toHaveCount(1);
+  await expect(page.locator('#palette .swatch')).toHaveCount(1);
 });
 
 test('cancels deletion when dragged off, interrupted or moved into the background', async ({ page }) => {
-  const button = page.locator('.swatch').first();
+  const button = page.locator('#palette .swatch').first();
   for (const reason of ['move', 'cancel', 'blur']) {
     await pressSwatch(page, button);
     await expect(button).toHaveClass(/is-deleting/);
@@ -153,14 +153,14 @@ test('cancels deletion when dragged off, interrupted or moved into the backgroun
     await expect(button).not.toHaveClass(/is-pressed|is-deleting/);
   }
   await page.waitForTimeout(1050);
-  await expect(page.locator('.swatch')).toHaveCount(5);
+  await expect(page.locator('#palette .swatch')).toHaveCount(5);
   await expect(page.locator('#color-value')).toHaveValue('#171717');
-  await page.locator('.swatch').last().click();
+  await page.locator('#palette .swatch').last().click();
   await expect(page.locator('#color-value')).toHaveValue('#FF677D');
 });
 
 test('supports the same short press and hold behavior from the keyboard', async ({ page }) => {
-  const button = page.locator('.swatch[data-color="#a8e6cf"]');
+  const button = page.locator('#palette .swatch[data-color="#a8e6cf"]');
   await button.focus();
   await page.keyboard.press('Enter');
   await expect(page.locator('#color-value')).toHaveValue('#A8E6CF');
@@ -172,7 +172,7 @@ test('supports the same short press and hold behavior from the keyboard', async 
   await page.keyboard.down('Space');
   await expect(button).toHaveCount(0);
   await page.keyboard.up('Space');
-  await expect(page.locator('.swatch').first()).toBeFocused();
+  await expect(page.locator('#palette .swatch').first()).toBeFocused();
   await expect(page.locator('#color-value')).toHaveValue('#A8E6CF');
 });
 
@@ -181,13 +181,13 @@ test('validates saved palettes and recovers from malformed storage', async ({ pa
     '#AABBCC', '#aabbcc', '#243042', 'url(https://example.com)', '<img src=x>', null, 123,
   ])));
   await page.reload();
-  await expect(page.locator('.swatch')).toHaveCount(2);
-  await expect(page.locator('.swatch').first()).toHaveAttribute('data-color', '#aabbcc');
-  await expect(page.locator('.swatch').last()).toHaveAttribute('data-color', '#243042');
+  await expect(page.locator('#palette .swatch')).toHaveCount(2);
+  await expect(page.locator('#palette .swatch').first()).toHaveAttribute('data-color', '#aabbcc');
+  await expect(page.locator('#palette .swatch').last()).toHaveAttribute('data-color', '#243042');
   await expect(page.locator('#palette img')).toHaveCount(0);
   await page.evaluate(() => localStorage.setItem('inkmotion.palette.v1', '{broken'));
   await page.reload();
-  await expect(page.locator('.swatch')).toHaveCount(5);
+  await expect(page.locator('#palette .swatch')).toHaveCount(5);
   await expect(page.locator('#export')).toBeEnabled();
 });
 
@@ -198,10 +198,10 @@ test('auto-save and hold deletion still work when local storage is unavailable',
   });
   await page.reload();
   await page.locator('#color').fill('#123456');
-  await expect(page.locator('.swatch')).toHaveCount(6);
+  await expect(page.locator('#palette .swatch')).toHaveCount(6);
   await expect(page.locator('#export')).toBeEnabled();
-  await removeSwatch(page, page.locator('.swatch[data-color="#123456"]'));
-  await expect(page.locator('.swatch')).toHaveCount(5);
+  await removeSwatch(page, page.locator('#palette .swatch[data-color="#123456"]'));
+  await expect(page.locator('#palette .swatch')).toHaveCount(5);
   await expect(page.locator('#drawing > svg > g')).toHaveAttribute('stroke', '#123456');
 });
 
@@ -210,10 +210,10 @@ test('translates the hold hint without losing saved colors', async ({ page }) =>
   await page.locator('#language-toggle').click();
   await page.getByRole('menuitemradio', { name: 'English', exact: true }).click();
   await expect(page.getByRole('group', { name: 'Color palette', exact: true })).toBeVisible();
-  await expect(page.locator('.swatch[data-color="#123456"]')).toHaveAttribute('title', 'Hold to remove color');
+  await expect(page.locator('#palette .swatch[data-color="#123456"]')).toHaveAttribute('title', 'Hold to remove color');
   await page.locator('#language-toggle').click();
   await page.getByRole('menuitemradio', { name: '简体中文', exact: true }).click();
-  await expect(page.locator('.swatch[data-color="#123456"]')).toHaveAttribute('title', '长按删除颜色');
+  await expect(page.locator('#palette .swatch[data-color="#123456"]')).toHaveAttribute('title', '长按删除颜色');
 });
 
 for (const width of [1440, 900, 375, 320]) {
@@ -223,19 +223,19 @@ for (const width of [1440, 900, 375, 320]) {
     for (const color of ['#171717', '#123456', '#234567', '#345678', '#456789', '#56789a', '#6789ab']) {
       await page.locator('#color').fill(color);
     }
-    const swatches = page.locator('.swatch');
+    const swatches = page.locator('#palette .swatch');
     await expect(swatches).toHaveCount(12);
     const first = (await swatches.first().boundingBox())!;
     const last = (await swatches.last().boundingBox())!;
     expect(last.y).toBeGreaterThan(first.y);
-    await page.locator('.color-field').screenshot({ path: testInfo.outputPath('palette.png') });
+    await page.locator('#color-field').screenshot({ path: testInfo.outputPath('palette.png') });
     await pressSwatch(page, swatches.last());
     await expect.poll(() => ringOffset(swatches.last()), { intervals: [30] }).toBeLessThan(.6);
-    await page.locator('.color-field').screenshot({ path: testInfo.outputPath('palette-holding.png') });
+    await page.locator('#color-field').screenshot({ path: testInfo.outputPath('palette-holding.png') });
     await page.mouse.up();
     await expect(swatches.last()).not.toHaveClass(/is-deleting/);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    await removeSwatch(page, page.locator('.swatch[data-color="#6789ab"]'));
+    await removeSwatch(page, page.locator('#palette .swatch[data-color="#6789ab"]'));
     await page.reload();
     await expect(swatches).toHaveCount(11);
   });
@@ -245,7 +245,7 @@ test.describe('touch input', () => {
   test.use({ hasTouch: true, isMobile: true, viewport: { width: 375, height: 812 } });
 
   test('supports touch hold deletion and cancels a scrolling gesture', async ({ page }) => {
-    const button = page.locator('.swatch[data-color="#a8e6cf"]');
+    const button = page.locator('#palette .swatch[data-color="#a8e6cf"]');
     await button.scrollIntoViewIfNeeded();
     const box = (await button.boundingBox())!;
     const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
@@ -255,13 +255,13 @@ test.describe('touch input', () => {
     await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...point, y: point.y - 50 }] });
     await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await expect(button).not.toHaveClass(/is-pressed|is-deleting/);
-    await expect(page.locator('.swatch')).toHaveCount(5);
+    await expect(page.locator('#palette .swatch')).toHaveCount(5);
     await button.scrollIntoViewIfNeeded();
     const nextBox = (await button.boundingBox())!;
     await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: nextBox.x + nextBox.width / 2, y: nextBox.y + nextBox.height / 2 }] });
     await expect(button).toHaveCount(0);
     await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await expect(page.locator('#color-value')).toHaveValue('#171717');
-    await expect(page.locator('.swatch')).toHaveCount(4);
+    await expect(page.locator('#palette .swatch')).toHaveCount(4);
   });
 });

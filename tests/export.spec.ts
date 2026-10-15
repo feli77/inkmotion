@@ -167,7 +167,7 @@ test('loop playback holds for one second then resets all strokes on the same cyc
   expect(states[4][1].offset).toBeGreaterThan(0);
 });
 
-for (const background of ['transparent', '#ffffff']) {
+for (const background of ['transparent', '#ffffff', '#000000', '#123456']) {
   test(`PNG contains the completed drawing with a ${background} background`, async ({ page }) => {
     const result = await page.evaluate(async (input) => {
       const moduleUrl = '/src/export.ts';
@@ -189,14 +189,14 @@ for (const background of ['transparent', '#ffffff']) {
     expect(result.signature).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
     expect(result.dimensions).toEqual([240, 120]);
     expect(result.pixels).toEqual([
-      background === 'transparent' ? [0, 0, 0, 0] : [255, 255, 255, 255],
+      background === 'transparent' ? [0, 0, 0, 0] : [...[1, 3, 5].map(index => parseInt(background.slice(index, index + 2), 16)), 255],
       [36, 48, 66, 255], [36, 48, 66, 255],
     ]);
   });
 }
 
 for (const loop of [false, true]) {
-  for (const background of ['transparent', '#ffffff']) {
+  for (const background of ['transparent', '#ffffff', '#000000']) {
     test(`GIF preserves stroke timing, final hold and ${background} background with loop=${loop}`, async ({ page }) => {
       const result = await page.evaluate(async (input) => {
         const moduleUrl = '/src/export.ts';
@@ -231,7 +231,7 @@ for (const loop of [false, true]) {
       expect(result.header).toBe('GIF89a');
       expect(result.repeats).toBe(loop);
       expect(result.frameCount).toBe(41);
-      const blank = background === 'transparent' ? [0, 0, 0, 0] : [255, 255, 255, 255];
+      const blank = background === 'transparent' ? [0, 0, 0, 0] : [...[1, 3, 5].map(index => parseInt(background.slice(index, index + 2), 16)), 255];
       const ink = [36, 48, 66, 255];
       expect(result.samples.map(sample => [sample.width, sample.height])).toEqual(Array(4).fill([240, 120]));
       expect(result.samples.map(sample => sample.timestamp)).toEqual([0, 500000, 1500000, 2000000]);

@@ -39,7 +39,7 @@ test('switches every language without replacing the drawing or losing editor set
   await page.locator('#fontSize-value').fill('64');
   await page.locator('#color-value').fill('#123456');
   await page.locator('#alignment').selectOption('right');
-  await page.locator('#background').selectOption('transparent');
+  await page.locator('#background-palette [data-color="transparent"]').click();
   await page.locator('#loop').check();
   await expect(page.locator('#export')).toBeEnabled();
   const svg = (await page.locator('#drawing > svg').elementHandle())!;
@@ -55,7 +55,7 @@ test('switches every language without replacing the drawing or losing editor set
     await expect(page.locator('#fontSize-value')).toHaveValue('64');
     await expect(page.locator('#color-value')).toHaveValue('#123456');
     await expect(page.locator('#alignment')).toHaveValue('right');
-    await expect(page.locator('#background')).toHaveValue('transparent');
+    await expect(page.locator('#background-palette [data-color="transparent"]')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('#loop')).toBeChecked();
     await expect(page.locator('#export-mode')).toHaveCount(0);
     await expect(page.locator('#export-png')).toHaveText('PNG');

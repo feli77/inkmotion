@@ -26,6 +26,25 @@ const numericSettings = {
 } as const;
 type NumericSetting = keyof typeof numericSettings;
 const numericKeys = Object.keys(numericSettings) as NumericSetting[];
+const colorSettings = {
+  color: { label: 'settings.color', custom: 'settings.customColor', hex: 'settings.hexColor', palette: 'settings.palette', paletteId: 'palette' },
+  background: { label: 'settings.background', custom: 'settings.customBackground', hex: 'settings.hexBackground', palette: 'settings.backgroundPalette', paletteId: 'background-palette' },
+} as const;
+type ColorSetting = keyof typeof colorSettings;
+const colorKeys = Object.keys(colorSettings) as ColorSetting[];
+
+function colorControl(key: ColorSetting): string {
+  const { label, custom, hex, palette, paletteId } = colorSettings[key];
+  return `
+    <div id="${key}-field" class="color-field">
+      <div class="label-row"><label for="${key}-value" data-i18n="${label}">${t(label)}</label><input id="${key}-value" class="value-input" type="text" data-i18n-aria-label="${hex}" data-i18n-title="settings.hexColorHint" aria-label="${t(hex)}" title="${t('settings.hexColorHint')}" spellcheck="false" autocomplete="off" autocapitalize="off" /></div>
+      <div id="${paletteId}" class="colors" role="group" data-i18n-aria-label="${palette}" aria-label="${t(palette)}">
+        <div id="${paletteId}-swatches" class="palette-swatches"></div>
+        <div class="custom-color"><input id="${key}" type="color" data-i18n-aria-label="${custom}" aria-label="${t(custom)}" /><span aria-hidden="true">${icons.plus}</span></div>
+      </div>
+    </div>
+  `;
+}
 
 function numericControl(key: NumericSetting): string {
   const { label, min, max, step, unit } = numericSettings[key];
@@ -108,11 +127,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
           <section class="settings-group appearance-group" aria-labelledby="appearance-title">
             <h3 id="appearance-title" class="group-title">${icons.palette}<span data-i18n="settings.appearance">${t('settings.appearance')}</span></h3>
             <div class="group-fields">
-              <div class="color-field"><div class="label-row"><label for="color-value" data-i18n="settings.color">${t('settings.color')}</label><input id="color-value" class="value-input" type="text" data-i18n-aria-label="settings.hexColor" data-i18n-title="settings.hexColorHint" aria-label="${t('settings.hexColor')}" title="${t('settings.hexColorHint')}" spellcheck="false" autocomplete="off" autocapitalize="off" /></div><div id="palette" class="colors" role="group" data-i18n-aria-label="settings.palette" aria-label="${t('settings.palette')}">
-                <div id="palette-swatches" class="palette-swatches"></div>
-                <div class="custom-color"><input id="color" type="color" data-i18n-aria-label="settings.customColor" aria-label="${t('settings.customColor')}" /><span aria-hidden="true">${icons.plus}</span></div>
-              </div></div>
-              <div class="field"><label for="background" data-i18n="settings.background">${t('settings.background')}</label><select id="background"><option value="#ffffff" data-i18n="settings.white">${t('settings.white')}</option><option value="transparent" data-i18n="settings.transparent">${t('settings.transparent')}</option></select></div>
+              ${colorKeys.map(colorControl).join('')}
             </div>
           </section>
         </div>
@@ -155,21 +170,28 @@ const replayButton = $<HTMLButtonElement>('replay');
 const exportButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.export-controls button'));
 const videoSupported = Boolean(getVideoMimeType());
 if (!videoSupported) $('export-video').setAttribute('data-i18n-title', 'export.videoUnsupported');
-const colorInput = $<HTMLInputElement>('color');
-const colorValueInput = $<HTMLInputElement>('color-value');
-let hexColorEdited = false;
-const paletteSwatches = $('palette-swatches');
-let palette = ['#a8e6cf', '#dcedc1', '#ffd3b6', '#ffaaa5', '#ff677d'];
-const paletteStorageKey = 'inkmotion.palette.v1';
-try {
-  const saved: unknown = JSON.parse(localStorage.getItem(paletteStorageKey) ?? 'null');
-  if (Array.isArray(saved)) {
-    palette = [...new Set(saved.filter((color): color is string => typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color)).map(color => color.toLowerCase()))];
-  }
-} catch { /* Keep the default palette when storage is unavailable or malformed. */ }
+const colorControls = colorKeys.map(key => {
+  const storageKey = key === 'color' ? 'inkmotion.palette.v1' : 'inkmotion.background-palette.v1';
+  let palette = key === 'color' ? ['#a8e6cf', '#dcedc1', '#ffd3b6', '#ffaaa5', '#ff677d'] : ['#000000', '#ffffff'];
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(storageKey) ?? 'null');
+    if (Array.isArray(saved)) {
+      palette = [...new Set(saved.filter((color): color is string => typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color)).map(color => color.toLowerCase()))];
+    }
+  } catch { /* Keep the default palette when storage is unavailable or malformed. */ }
+  return {
+    key, storageKey, palette,
+    input: $<HTMLInputElement>(key),
+    valueInput: $<HTMLInputElement>(`${key}-value`),
+    swatches: $(`${colorSettings[key].paletteId}-swatches`),
+    hexEdited: false,
+    cancelHold: () => {},
+  };
+});
+type ColorControl = typeof colorControls[number];
 const defaults: RenderSettings = {
   fontId: 'satisfy', fontSize: 56, strokeWidth: 1.8, speed: 1, color: '#171717',
-  lineHeight: 1.65, alignment: 'left', background: '#ffffff', loop: false, width: 720, padding: 32,
+  lineHeight: 1.65, alignment: 'left', background: 'transparent', loop: false, width: 720, padding: 32,
 };
 let settings = { ...defaults };
 let text = 'Make something\nworth remembering.';
@@ -185,7 +207,7 @@ try {
     }
     if (/^#[0-9a-f]{6}$/i.test(saved.color)) settings.color = saved.color.toLowerCase();
     if (['left', 'center', 'right'].includes(saved.alignment)) settings.alignment = saved.alignment;
-    if (['#ffffff', 'transparent'].includes(saved.background)) settings.background = saved.background;
+    if (saved.background === 'transparent' || /^#[0-9a-f]{6}$/i.test(saved.background)) settings.background = saved.background.toLowerCase();
     if (typeof saved.loop === 'boolean') settings.loop = saved.loop;
     if (fonts.some(font => font.id === saved.fontId)) settings.fontId = saved.fontId;
   }
@@ -193,7 +215,7 @@ try {
 
 textInput.value = text;
 fontInput.value = settings.fontId;
-for (const key of ['speed', 'fontSize', 'strokeWidth', 'lineHeight', 'color', 'alignment', 'background'] as const) {
+for (const key of ['speed', 'fontSize', 'strokeWidth', 'lineHeight', 'alignment'] as const) {
   $<HTMLInputElement>(key).value = String(settings[key]);
 }
 $<HTMLInputElement>('loop').checked = settings.loop;
@@ -204,37 +226,46 @@ function normalizeHexColor(value: string): string | undefined {
   return `#${hex.length === 3 ? hex.replace(/./g, '$&$&') : hex}`.toLowerCase();
 }
 
-function swatchMarkup(color: string): string {
+function swatchMarkup(control: ColorControl, color: string): string {
+  if (color === 'transparent') {
+    return `<button type="button" class="swatch swatch-transparent" data-color="transparent" aria-label="${t('settings.transparent')}" title="${t('settings.transparent')}" aria-pressed="${settings.background === color}"></button>`;
+  }
   const [red, green, blue] = [1, 3, 5].map(index => parseInt(color.slice(index, index + 2), 16));
   const ink = red * .299 + green * .587 + blue * .114 > 150 ? '#171717' : '#ffffff';
-  return `<button type="button" class="swatch" data-color="${color}" style="--swatch:${color};--swatch-ink:${ink}" aria-label="${t('settings.color')} ${color}" title="${t('settings.holdToDelete')}" aria-pressed="${color === settings.color}">
+  return `<button type="button" class="swatch" data-color="${color}" style="--swatch:${color};--swatch-ink:${ink}" aria-label="${t(colorSettings[control.key].label)} ${color}" title="${t('settings.holdToDelete')}" aria-pressed="${color === settings[control.key]}">
     <span class="swatch-delete" aria-hidden="true">${icons.close}<svg class="swatch-ring" viewBox="0 0 28 28"><circle class="swatch-progress" cx="14" cy="14" r="11" pathLength="1" /></svg></span>
   </button>`;
 }
 
 function renderPalette(): void {
-  cancelPaletteHold();
-  paletteSwatches.innerHTML = palette.map(swatchMarkup).join('');
+  for (const control of colorControls) {
+    control.cancelHold();
+    const colors = control.key === 'background' ? ['transparent', ...control.palette] : control.palette;
+    control.swatches.innerHTML = colors.map(color => swatchMarkup(control, color)).join('');
+  }
 }
 
-function persistPalette(): void {
-  try { localStorage.setItem(paletteStorageKey, JSON.stringify(palette)); } catch { /* Editing still works without storage. */ }
+function persistPalette(control: ColorControl): void {
+  try { localStorage.setItem(control.storageKey, JSON.stringify(control.palette)); } catch { /* Editing still works without storage. */ }
 }
 
-function savePaletteColor(color: string): void {
-  if (palette.includes(color)) return;
-  palette.push(color);
-  persistPalette();
-  paletteSwatches.insertAdjacentHTML('beforeend', swatchMarkup(color));
+function savePaletteColor(control: ColorControl, color: string): void {
+  if (color === 'transparent' || control.palette.includes(color)) return;
+  control.palette.push(color);
+  persistPalette(control);
+  control.swatches.insertAdjacentHTML('beforeend', swatchMarkup(control, color));
 }
 
 function updateLabels(): void {
   $('count').textContent = t('text.count', { count: Array.from(textInput.value).length });
-  colorInput.value = settings.color;
-  if (document.activeElement !== colorValueInput) colorValueInput.value = settings.color.toUpperCase();
-  document.querySelectorAll<HTMLButtonElement>('.swatch').forEach(button => {
-    button.setAttribute('aria-pressed', String(button.dataset.color === settings.color));
-  });
+  for (const control of colorControls) {
+    const color = settings[control.key];
+    control.input.value = color === 'transparent' ? '#ffffff' : color;
+    if (document.activeElement !== control.valueInput) control.valueInput.value = color === 'transparent' ? t('settings.transparent') : color.toUpperCase();
+    control.swatches.querySelectorAll<HTMLButtonElement>('.swatch').forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.color === color));
+    });
+  }
   for (const key of numericKeys) {
     const input = $<HTMLInputElement>(key);
     const valueInput = $<HTMLInputElement>(`${key}-value`);
@@ -436,68 +467,72 @@ for (const key of numericKeys) {
     } else if (event.key === 'Escape') valueInput.value = String(settings[key]);
   });
 }
-colorInput.addEventListener('input', event => {
-  settings.color = (event.target as HTMLInputElement).value;
-  scheduleRender();
-});
-colorInput.addEventListener('change', () => {
-  if (settings.color !== colorInput.value) {
-    settings.color = colorInput.value;
+for (const control of colorControls) {
+  const { key, input, valueInput, swatches } = control;
+  const displayValue = () => settings[key] === 'transparent' ? t('settings.transparent') : settings[key].toUpperCase();
+  input.addEventListener('input', () => {
+    settings[key] = input.value;
     scheduleRender();
-  }
-  savePaletteColor(settings.color);
-});
-function updateHexColor(commit = false): void {
-  const color = normalizeHexColor(colorValueInput.value);
-  if (color && (commit || /^#?[0-9a-f]{6}$/i.test(colorValueInput.value.trim()))) {
-    if (color !== settings.color) {
-      settings.color = color;
+  });
+  input.addEventListener('change', () => {
+    if (settings[key] !== input.value) {
+      settings[key] = input.value;
       scheduleRender();
     }
+    savePaletteColor(control, settings[key]);
+  });
+  function updateHexColor(commit = false): void {
+    const value = valueInput.value.trim();
+    const color = key === 'background' && (value.toLowerCase() === 'transparent' || value === t('settings.transparent')) ? 'transparent' : normalizeHexColor(value);
+    if (color && (commit || /^#?[0-9a-f]{6}$/i.test(value))) {
+      if (color !== settings[key]) {
+        settings[key] = color;
+        scheduleRender();
+      }
+    }
+    if (commit) {
+      valueInput.value = displayValue();
+      if (color && control.hexEdited) savePaletteColor(control, color);
+      control.hexEdited = false;
+    }
   }
-  if (commit) {
-    colorValueInput.value = settings.color.toUpperCase();
-    if (color && hexColorEdited) savePaletteColor(color);
-    hexColorEdited = false;
-  }
-}
-colorValueInput.addEventListener('input', () => {
-  hexColorEdited = true;
-  updateHexColor();
-});
-colorValueInput.addEventListener('blur', () => updateHexColor(true));
-colorValueInput.addEventListener('keydown', event => {
-  if (event.key === 'Enter') {
-    event.preventDefault();
-    updateHexColor(true);
-  } else if (event.key === 'Escape') {
-    colorValueInput.value = settings.color.toUpperCase();
-    hexColorEdited = false;
-  }
-});
-const cancelPaletteHold = bindPaletteHold(paletteSwatches, color => {
-  const index = palette.indexOf(color);
-  if (index < 0) return;
-  const focused = paletteSwatches.contains(document.activeElement);
-  palette.splice(index, 1);
-  persistPalette();
-  paletteSwatches.querySelector(`[data-color="${color}"]`)?.remove();
-  if (focused) (paletteSwatches.querySelectorAll<HTMLButtonElement>('.swatch')[Math.min(index, palette.length - 1)] ?? colorInput).focus();
-});
-paletteSwatches.addEventListener('click', event => {
-  const button = (event.target as Element).closest<HTMLButtonElement>('button');
-  if (!button) return;
-  if (button.dataset.color) {
-    settings.color = button.dataset.color;
-    scheduleRender(0);
-  }
-});
-for (const key of ['alignment', 'background'] as const) {
-  $<HTMLSelectElement>(key).addEventListener('change', event => {
-    settings = { ...settings, [key]: (event.target as HTMLSelectElement).value };
-    scheduleRender(0);
+  valueInput.addEventListener('input', () => {
+    control.hexEdited = true;
+    updateHexColor();
+  });
+  valueInput.addEventListener('blur', () => updateHexColor(true));
+  valueInput.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      updateHexColor(true);
+    } else if (event.key === 'Escape') {
+      valueInput.value = displayValue();
+      control.hexEdited = false;
+    }
+  });
+  control.cancelHold = bindPaletteHold(swatches, color => {
+    const index = control.palette.indexOf(color);
+    if (index < 0) return;
+    const focused = swatches.contains(document.activeElement);
+    control.palette.splice(index, 1);
+    persistPalette(control);
+    const button = swatches.querySelector<HTMLButtonElement>(`[data-color="${color}"]`);
+    const next = button?.nextElementSibling ?? button?.previousElementSibling;
+    button?.remove();
+    if (focused) ((next as HTMLButtonElement | null) ?? input).focus();
+  });
+  swatches.addEventListener('click', event => {
+    const button = (event.target as Element).closest<HTMLButtonElement>('button');
+    if (button?.dataset.color) {
+      settings[key] = button.dataset.color;
+      scheduleRender(0);
+    }
   });
 }
+$<HTMLSelectElement>('alignment').addEventListener('change', event => {
+  settings.alignment = (event.target as HTMLSelectElement).value as RenderSettings['alignment'];
+  scheduleRender(0);
+});
 $<HTMLInputElement>('loop').addEventListener('change', event => {
   settings.loop = (event.target as HTMLInputElement).checked;
   scheduleRender(0);

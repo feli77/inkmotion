@@ -8,7 +8,7 @@ export function bindPaletteHold(container: HTMLElement, removeColor: (color: str
     progress?: Animation;
   } | undefined;
   let suppressClick = false;
-  const swatch = (target: EventTarget | null) => (target as Element | null)?.closest<HTMLButtonElement>('.swatch');
+  const swatch = (target: EventTarget | null) => (target as Element | null)?.closest<HTMLButtonElement>('.swatch:not([data-color="transparent"])');
 
   function release(cancelled = false): void {
     const active = press;

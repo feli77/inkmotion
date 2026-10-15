@@ -70,7 +70,7 @@ test('translates the theme action and tooltip when the language or theme changes
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 });
 
-test('keeps dark previews readable without changing artwork, playback, draft settings or exports', async ({ page }) => {
+test('blends transparent previews into either theme without changing artwork, playback, draft settings or exports', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
   await page.locator('#text').fill('Keep these colors');
@@ -81,25 +81,30 @@ test('keeps dark previews readable without changing artwork, playback, draft set
   const artwork = await svg.innerHTML();
   const time = await svg.evaluate((element: SVGSVGElement) => element.getCurrentTime());
   const draft = await page.evaluate(() => localStorage.getItem('inkmotion.draft.v1'));
-  await expect(svg.locator(':scope > rect')).toBeHidden();
+  await expect(svg.locator(':scope > rect')).toHaveCount(0);
   await page.locator('#theme-toggle').click();
-  await expect(svg.locator(':scope > rect')).toBeVisible();
-  await expect(svg.locator(':scope > rect')).toHaveAttribute('fill', '#ffffff');
+  await expect(svg.locator(':scope > rect')).toHaveCount(0);
+  await expect(svg).toHaveCSS('background-image', 'none');
+  await expect(svg).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   expect(await drawing.evaluate(element => element === document.querySelector('#drawing > svg'))).toBe(true);
   expect(await svg.innerHTML()).toBe(artwork);
   expect(await svg.evaluate((element: SVGSVGElement) => element.getCurrentTime())).toBeCloseTo(time, 3);
   expect(await page.evaluate(() => localStorage.getItem('inkmotion.draft.v1'))).toBe(draft);
   await expect(page.locator('#text')).toHaveValue('Keep these colors');
   await expect(page.locator('#color-value')).toHaveValue('#123456');
-  await expect(page.locator('#background')).toHaveValue('#ffffff');
+  await expect(page.locator('#background-value')).toHaveValue('透明');
 
-  for (const background of ['#ffffff', 'transparent']) {
-    await page.locator('#background').selectOption(background);
+  for (const background of ['#ffffff', '#000000', '#abcdef', 'transparent']) {
+    if (background === 'transparent') await page.locator('#background-palette [data-color="transparent"]').click();
+    else await page.locator('#background').fill(background);
     await expect(page.locator('#export')).toBeEnabled();
     await expect(svg.locator(':scope > g')).toHaveAttribute('stroke', '#123456');
     if (background === 'transparent') {
       await expect(svg.locator(':scope > rect')).toHaveCount(0);
-      await expect(svg).toHaveCSS('background-image', /repeating-conic-gradient/);
+      await expect(svg).toHaveCSS('background-image', 'none');
+    } else {
+      await expect(svg.locator(':scope > rect')).toBeVisible();
+      await expect(svg.locator(':scope > rect')).toHaveAttribute('fill', background);
     }
     const downloadEvent = page.waitForEvent('download');
     await page.locator('#export').click();
@@ -107,7 +112,8 @@ test('keeps dark previews readable without changing artwork, playback, draft set
     let data = '';
     for await (const chunk of stream!) data += chunk.toString();
     expect(data).toContain('stroke="#123456"');
-    expect(data.includes('<rect')).toBe(background === '#ffffff');
+    expect(data.includes('<rect')).toBe(background !== 'transparent');
+    if (background !== 'transparent') expect(data).toContain(`fill="${background}"`);
     expect(data).not.toContain('repeating-conic-gradient');
     expect(data).not.toContain('data-theme');
   }
