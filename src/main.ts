@@ -33,7 +33,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         <div class="control"><div class="label-row"><label for="fontSize">${t('settings.size')}</label><output for="fontSize" id="fontSize-value"></output></div><input id="fontSize" type="range" min="28" max="96" step="1" /></div>
         <div class="control"><div class="label-row"><label for="strokeWidth">${t('settings.stroke')}</label><output for="strokeWidth" id="strokeWidth-value"></output></div><input id="strokeWidth" type="range" min="0.8" max="4" step="0.1" /></div>
         <div class="color-field"><label for="color">${t('settings.color')}</label><div class="colors">
-          ${['#24382f', '#263b61', '#a04a43', '#765b91'].map(color => `<button type="button" class="swatch" data-color="${color}" style="--swatch:${color}" aria-label="${t('settings.color')} ${color}" aria-pressed="false"></button>`).join('')}
+          ${['#171717', '#404040', '#737373', '#a3a3a3'].map(color => `<button type="button" class="swatch" data-color="${color}" style="--swatch:${color}" aria-label="${t('settings.color')} ${color}" aria-pressed="false"></button>`).join('')}
           <div class="custom-color"><input id="color" type="color" aria-label="${t('settings.customColor')}" /><span aria-hidden="true">+</span></div>
           <output id="color-value" for="color"></output>
         </div></div>
@@ -68,7 +68,7 @@ const replayButton = $<HTMLButtonElement>('replay');
 const exportButton = $<HTMLButtonElement>('export');
 const progress = $<HTMLInputElement>('progress');
 const defaults: RenderSettings = {
-  fontId: 'satisfy', fontSize: 56, strokeWidth: 1.8, speed: 1, color: '#24382f',
+  fontId: 'satisfy', fontSize: 56, strokeWidth: 1.8, speed: 1, color: '#171717',
   lineHeight: 1.65, alignment: 'left', background: '#ffffff', loop: false, width: 720, padding: 32,
 };
 let settings = { ...defaults };
