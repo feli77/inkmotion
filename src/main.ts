@@ -9,8 +9,6 @@ setLocale(navigator.language);
 
 const icons = {
   pen: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 18c4-9 7-12 11-12-1 5-4 9-8 10l-3 2Zm3-2 5-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  play: '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m7 4 9 6-9 6V4Z" fill="currentColor"/></svg>',
-  pause: '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M7 4v12M13 4v12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>',
   replay: '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4.5 8a6 6 0 1 1 .5 5M4.5 8V3.5M4.5 8H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   download: '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3v9m-3-3 3 3 3-3M4 13v3h12v-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 };
@@ -45,8 +43,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         <div class="preview-header"><div><h2 id="preview-title">${t('preview.label')}</h2><span id="status" class="preview-status" role="status">${t('preview.loading')}</span></div>
           <div class="export-controls"><select id="export-mode" aria-label="${t('export.mode')}"><option value="animated">${t('export.animated')}</option><option value="static">${t('export.static')}</option></select><button id="export" class="button-primary" type="button" disabled>${icons.download}<span>${t('export.label')}</span></button></div>
         </div>
-        <div class="paper-area"><div id="paper" class="paper"><div id="drawing" class="drawing"></div><div id="empty" class="empty-state">${t('preview.loading')}<button id="retry" type="button" hidden>${t('preview.retry')}</button></div></div></div>
-        <div class="transport"><button id="play" class="play-button" type="button" disabled>${icons.play}<span>${t('player.play')}</span></button><button id="replay" class="icon-button" type="button" aria-label="${t('player.replay')}" title="${t('player.replay')}" disabled>${icons.replay}</button><input id="progress" type="range" min="0" max="1" step="0.001" value="0" aria-label="${t('player.progress')}" disabled /><output id="time" for="progress">0:00 / 0:00</output></div>
+        <div class="paper-area"><div id="paper" class="paper"><div class="paper-actions"><button id="replay" class="replay-button" type="button" disabled>${icons.replay}<span>${t('player.replay')}</span></button></div><div id="drawing" class="drawing"></div><div id="empty" class="empty-state">${t('preview.loading')}<button id="retry" type="button" hidden>${t('preview.retry')}</button></div></div></div>
       </section>
     </div>
   </main>
@@ -59,10 +56,8 @@ const drawing = $('drawing');
 const paper = $('paper');
 const empty = $('empty');
 const warning = $('warning');
-const playButton = $<HTMLButtonElement>('play');
 const replayButton = $<HTMLButtonElement>('replay');
 const exportButton = $<HTMLButtonElement>('export');
-const progress = $<HTMLInputElement>('progress');
 const defaults: RenderSettings = {
   fontId: 'satisfy', fontSize: 56, strokeWidth: 1.8, speed: 1, color: '#171717',
   lineHeight: 1.65, alignment: 'left', background: '#ffffff', loop: false, width: 720, padding: 32,
@@ -118,32 +113,8 @@ let font: FontData | undefined;
 let scene: Scene | undefined;
 let player: Player | undefined;
 let renderTimer = 0;
-let frame = 0;
 let fontRequest = 0;
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-
-function formatTime(seconds: number): string {
-  const value = Math.max(0, Math.floor(seconds));
-  return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, '0')}`;
-}
-
-function updateTransport(): void {
-  const duration = scene?.duration ?? 0;
-  const current = Math.min(player?.currentTime ?? 0, duration);
-  progress.value = String(duration ? current / duration : 0);
-  progress.style.setProperty('--fill', `${Number(progress.value) * 100}%`);
-  $('time').textContent = `${formatTime(current)} / ${formatTime(duration)}`;
-  const playing = player?.isPlaying ?? false;
-  const label = t(playing ? 'player.pause' : 'player.play');
-  playButton.innerHTML = `${playing ? icons.pause : icons.play}<span>${label}</span>`;
-  playButton.setAttribute('aria-label', label);
-}
-
-function tick(): void {
-  cancelAnimationFrame(frame);
-  updateTransport();
-  if (player?.isPlaying) frame = requestAnimationFrame(tick);
-}
 
 function showWarning(message = ''): void {
   warning.hidden = !message;
@@ -152,7 +123,6 @@ function showWarning(message = ''): void {
 
 function render(): void {
   if (!font) return;
-  cancelAnimationFrame(frame);
   player?.destroy();
   player = undefined;
   settings.width = Math.max(240, Math.floor(paper.clientWidth));
@@ -172,19 +142,17 @@ function render(): void {
   empty.hidden = canPlay;
   if (!canPlay) empty.firstChild!.textContent = t('preview.empty');
   paper.classList.toggle('transparent', settings.background === 'transparent');
-  $('status').textContent = t('preview.live');
+  $('status').textContent = '';
   showWarning(scene.unsupported.length ? t('preview.unsupported', { chars: scene.unsupported.join(' ') }) : '');
   exportButton.disabled = !canPlay || scene.unsupported.length > 0;
-  playButton.disabled = replayButton.disabled = progress.disabled = !canPlay;
-  updateTransport();
-  tick();
+  replayButton.disabled = !canPlay;
 }
 
 function scheduleRender(delay = 120): void {
   clearTimeout(renderTimer);
   updateLabels();
-  // Avoid exporting stale preview content while new text or settings are pending.
-  exportButton.disabled = true;
+  // Wait for the updated preview before exporting or replaying.
+  exportButton.disabled = replayButton.disabled = true;
   persist();
   renderTimer = window.setTimeout(render, delay);
 }
@@ -192,7 +160,7 @@ function scheduleRender(delay = 120): void {
 async function selectFont(): Promise<void> {
   const request = ++fontRequest;
   font = undefined;
-  exportButton.disabled = true;
+  exportButton.disabled = replayButton.disabled = true;
   $('status').textContent = t('preview.loading');
   $<HTMLButtonElement>('retry').hidden = true;
   try {
@@ -242,27 +210,7 @@ fontInput.addEventListener('change', () => {
   void selectFont();
 });
 $<HTMLButtonElement>('retry').addEventListener('click', () => void selectFont());
-playButton.addEventListener('click', () => {
-  if (player?.isPlaying) player.pause(); else player?.play();
-  tick();
-});
-replayButton.addEventListener('click', () => {
-  player?.restart();
-  tick();
-});
-let resumeAfterSeek = false;
-progress.addEventListener('pointerdown', () => { resumeAfterSeek = player?.isPlaying ?? false; });
-progress.addEventListener('keydown', () => { resumeAfterSeek = false; });
-progress.addEventListener('input', () => {
-  player?.pause();
-  player?.seek(Number(progress.value) * (scene?.duration ?? 0));
-  updateTransport();
-});
-progress.addEventListener('change', () => {
-  if (resumeAfterSeek && Number(progress.value) < 1) player?.play();
-  resumeAfterSeek = false;
-  tick();
-});
+replayButton.addEventListener('click', () => player?.restart());
 exportButton.addEventListener('click', async () => {
   if (!scene || exportButton.disabled) return;
   exportButton.disabled = true;

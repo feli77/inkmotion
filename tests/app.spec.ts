@@ -10,18 +10,15 @@ test('editing updates preview, settings, playback and SVG downloads', async ({ p
   page.on('pageerror', error => errors.push(error.message));
   await page.locator('#text').fill('Hello, InkMotion!\nWrite it slowly.');
   await expect(page.locator('#drawing title')).toHaveText('Hello, InkMotion!\nWrite it slowly.');
-  await page.locator('#progress').dispatchEvent('pointerdown');
-  await page.locator('#progress').fill('1');
-  await expect(page.locator('#progress')).toHaveValue('1');
-  await expect(page.locator('#play')).toHaveAccessibleName('播放');
-  await page.locator('#play').click();
-  await expect(page.locator('#play')).toHaveAccessibleName('暂停');
-  await page.locator('#play').click();
-  await expect(page.locator('#play')).toHaveAccessibleName('播放');
-  await page.locator('#progress').fill('0.6');
-  await expect(page.locator('#progress')).toHaveValue('0.6');
+  const drawing = page.locator('#drawing > svg');
+  await drawing.evaluate((svg: SVGSVGElement) => {
+    svg.pauseAnimations();
+    svg.setCurrentTime(2);
+  });
   await page.locator('#replay').click();
-  await expect(page.locator('#play')).toHaveAccessibleName('暂停');
+  expect(await drawing.evaluate((svg: SVGSVGElement) => svg.animationsPaused())).toBe(false);
+  expect(await drawing.evaluate((svg: SVGSVGElement) => svg.getCurrentTime())).toBeLessThan(1);
+  await expect.poll(() => drawing.evaluate((svg: SVGSVGElement) => svg.getCurrentTime())).toBeGreaterThan(0.05);
   await page.locator('#speed').fill('2');
   await page.locator('#strokeWidth').fill('3');
   await page.locator('[data-color="#ff677d"]').click();
@@ -55,7 +52,7 @@ test('empty and unsupported input prevent exporting; draft survives reload', asy
   await expect(page.locator('#export')).toBeDisabled();
   await page.locator('#text').fill('');
   await expect(page.locator('#empty')).toContainText('写点什么');
-  await expect(page.locator('#play')).toBeDisabled();
+  await expect(page.locator('#replay')).toBeDisabled();
   await page.locator('#text').fill('A saved thought.');
   await expect(page.locator('#export')).toBeEnabled();
   await page.reload();
@@ -65,6 +62,9 @@ test('empty and unsupported input prevent exporting; draft survives reload', asy
 
 test('mobile has no horizontal overflow and transparent export preserves the background choice', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.reload();
+  await expect(page.locator('#export')).toBeEnabled();
   await page.locator('#lineHeight').fill('2');
   await expect(page.locator('#lineHeight-value')).toHaveText('2.0×');
   await page.locator('#background').selectOption('transparent');
@@ -74,13 +74,15 @@ test('mobile has no horizontal overflow and transparent export preserves the bac
   await expect(page.locator('#drawing > svg > rect')).toHaveCount(0);
   await expect(page.locator('#drawing animate').first()).toHaveAttribute('repeatCount', 'indefinite');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.locator('#progress').fill('1');
   await page.screenshot({ path: 'test-results/mobile.png', fullPage: true });
 });
 
 for (const width of [1440, 900, 375, 320]) {
   test(`settings stay above the full-width preview at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.reload();
+    await expect(page.locator('#export')).toBeEnabled();
     const editor = page.locator('.editor');
     const preview = page.locator('.preview-panel');
 
@@ -93,6 +95,17 @@ for (const width of [1440, 900, 375, 320]) {
     expect(previewBox.y).toBeGreaterThan(editorBox.y + editorBox.height);
     expect(previewBox.x).toBeCloseTo(editorBox.x, 1);
     expect(previewBox.width).toBeCloseTo(editorBox.width, 1);
+    await expect(page.locator('#status')).toBeEmpty();
+    await expect(preview.locator('#play, #progress, #time, .transport')).toHaveCount(0);
+    const replay = page.locator('#replay');
+    await expect(replay).toHaveAccessibleName('重新播放');
+    await expect(replay).toBeEnabled();
+    const paperBox = (await page.locator('#paper').boundingBox())!;
+    const replayBox = (await replay.boundingBox())!;
+    const drawingBox = (await page.locator('#drawing').boundingBox())!;
+    expect(replayBox.x + replayBox.width).toBeCloseTo(paperBox.x + paperBox.width - 12, 1);
+    expect(replayBox.y).toBeCloseTo(paperBox.y + 12, 1);
+    expect(replayBox.y + replayBox.height).toBeLessThanOrEqual(drawingBox.y);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     for (const control of await editor.locator('textarea, input:visible, select:visible').all()) {
       const box = (await control.boundingBox())!;
@@ -100,7 +113,6 @@ for (const width of [1440, 900, 375, 320]) {
       expect(box.x + box.width).toBeLessThanOrEqual(editorBox.x + editorBox.width);
     }
 
-    await page.locator('#progress').fill('1');
     await page.screenshot({ path: testInfo.outputPath('layout.png'), fullPage: true });
   });
 }
@@ -109,10 +121,13 @@ test('reduced motion shows completed text and retains manual playback', async ({
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.reload();
   await expect(page.locator('#export')).toBeEnabled();
-  await expect(page.locator('#play')).toHaveAccessibleName('播放');
-  await expect(page.locator('#progress')).toHaveValue('1');
-  await page.locator('#play').click();
-  await expect(page.locator('#play')).toHaveAccessibleName('暂停');
+  const drawing = page.locator('#drawing > svg');
+  expect(await drawing.evaluate((svg: SVGSVGElement) => svg.animationsPaused())).toBe(true);
+  expect(await drawing.evaluate(svg => Number.parseFloat(getComputedStyle(svg.querySelector('path:last-child')!).strokeDashoffset))).toBeCloseTo(0, 3);
+  await page.locator('#replay').click();
+  expect(await drawing.evaluate((svg: SVGSVGElement) => svg.animationsPaused())).toBe(false);
+  expect(await drawing.evaluate((svg: SVGSVGElement) => svg.getCurrentTime())).toBeLessThan(1);
+  await expect.poll(() => drawing.evaluate((svg: SVGSVGElement) => svg.getCurrentTime())).toBeGreaterThan(0.05);
 });
 
 test('a failed font request can be retried', async ({ page }) => {
@@ -120,6 +135,7 @@ test('a failed font request can be retried', async ({ page }) => {
   await page.reload();
   await expect(page.locator('#retry')).toBeVisible();
   await expect(page.locator('#export')).toBeDisabled();
+  await expect(page.locator('#replay')).toBeDisabled();
   await page.unroute('**/fonts/satisfy.json');
   await page.locator('#retry').click();
   await expect(page.locator('#export')).toBeEnabled();
