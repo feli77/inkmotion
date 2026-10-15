@@ -44,10 +44,9 @@ h1 { margin: 0; font-size: 22px; font-weight: 550; letter-spacing: .4px; line-he
 .group-fields { display: grid; gap: 21px; }
 .paired-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .group-fields label { font-size: 12px; color: var(--muted); }
-.group-fields output { padding: 3px 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--accent); font-size: 10px; line-height: 1.2; }
 label { font-size: 13px; font-weight: 500; }
 .label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 11px; }
-.muted, output { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.muted { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 textarea { display: block; width: 100%; min-height: 124px; resize: vertical; padding: 15px 17px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-subtle); color: var(--accent); font-size: 16px; line-height: 1.8; outline: none; transition: border-color .15s, box-shadow .15s; }
 textarea:focus { border-color: var(--accent); }
 textarea::placeholder { color: var(--muted); }
@@ -68,7 +67,12 @@ input[type='range']::-moz-range-thumb { width: 10px; height: 10px; background: v
 .custom-color span { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; border: 1px dashed #c5c5c5; border-radius: 50%; background: var(--surface); color: var(--muted); pointer-events: none; }
 .custom-color svg { width: 18px; height: 18px; }
 .custom-color:focus-within span { outline: 2px solid var(--accent); outline-offset: 4px; }
-#color-value { width: calc(7ch + 16px); min-width: 0; padding: 4px 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--accent); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; line-height: 1.2; text-align: center; }
+.value-input { width: calc(7ch + 16px); min-width: 0; flex-shrink: 0; padding: 4px 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--accent); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; line-height: 1.2; text-align: center; }
+.numeric-value { display: flex; align-items: center; gap: 4px; }
+.numeric-value input { appearance: textfield; width: 100%; min-width: 0; padding: 0; border: 0; outline: none; background: transparent; color: inherit; font: inherit; text-align: right; }
+.numeric-value input::-webkit-inner-spin-button, .numeric-value input::-webkit-outer-spin-button { appearance: none; margin: 0; }
+.numeric-value input:focus-visible { outline: none; }
+.numeric-value:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 4px; }
 .group-fields .checkbox-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 13px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--accent); font-weight: 400; cursor: pointer; }
 input[type='checkbox'] { appearance: none; position: relative; width: 34px; height: 20px; flex: 0 0 auto; border: 1px solid #d5d5d5; border-radius: 20px; background: var(--line); margin: 0; cursor: pointer; transition: background .15s, border-color .15s; }
 input[type='checkbox']::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 3px #00000018; transition: transform .15s; }

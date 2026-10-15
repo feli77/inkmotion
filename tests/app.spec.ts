@@ -61,6 +61,86 @@ test('empty and unsupported input prevent exporting; draft survives reload', asy
   await expect(page.locator('#drawing title')).toHaveText('A saved thought.');
 });
 
+test('numeric settings update the preview, survive reload and stay in sync with sliders', async ({ page }) => {
+  const controls = [
+    { key: 'fontSize', label: '字号', value: '64', sliderValue: '72' },
+    { key: 'lineHeight', label: '行距', value: '2.15', sliderValue: '1.9' },
+    { key: 'speed', label: '书写速度', value: '1.75', sliderValue: '2.5' },
+    { key: 'strokeWidth', label: '笔画粗细', value: '2.6', sliderValue: '3.1' },
+  ];
+  for (const { key, label, value } of controls) {
+    const previous = await page.locator('#drawing > svg').innerHTML();
+    const input = page.getByRole('spinbutton', { name: label, exact: true });
+    await input.fill(value);
+    await expect(input).toHaveValue(value);
+    await expect(page.getByRole('slider', { name: label, exact: true })).toHaveValue(value);
+    await expect(page.locator('#export')).toBeEnabled();
+    expect(await page.locator('#drawing > svg').innerHTML()).not.toBe(previous);
+    expect(await page.locator(`#${key}`).evaluate((input: HTMLInputElement) => input.validity.valid)).toBe(true);
+  }
+  await page.reload();
+  await expect(page.locator('#export')).toBeEnabled();
+  for (const { key, value } of controls) {
+    await expect(page.locator(`#${key}-value`)).toHaveValue(value);
+    await expect(page.locator(`#${key}`)).toHaveValue(value);
+  }
+
+  const preview = await page.locator('#drawing > svg').innerHTML();
+  const downloadEvent = page.waitForEvent('download');
+  await page.locator('#export').click();
+  const stream = await (await downloadEvent).createReadStream();
+  let data = '';
+  for await (const chunk of stream!) data += chunk.toString();
+  const exportedPreview = await page.evaluate(svg => {
+    const root = new DOMParser().parseFromString(svg, 'image/svg+xml').documentElement;
+    return document.importNode(root, true).innerHTML;
+  }, data);
+  expect(exportedPreview).toBe(preview);
+
+  for (const { key, sliderValue } of controls) {
+    await page.locator(`#${key}`).fill(sliderValue);
+    await expect(page.locator(`#${key}-value`)).toHaveValue(sliderValue);
+  }
+  await page.locator('#speed-value').press('ArrowUp');
+  await expect(page.locator('#speed-value')).toHaveValue('2.75');
+  await expect(page.locator('#speed')).toHaveValue('2.75');
+});
+
+test('numeric settings preserve unfinished input and normalize committed values', async ({ page }) => {
+  const controls = [
+    { key: 'fontSize', min: '28', max: '96', unaligned: '65.4', rounded: '65' },
+    { key: 'lineHeight', min: '1.3', max: '2.4', unaligned: '1.33', rounded: '1.35' },
+    { key: 'speed', min: '0.25', max: '3', unaligned: '1.37', rounded: '1.25' },
+    { key: 'strokeWidth', min: '0.8', max: '4', unaligned: '1.86', rounded: '1.9' },
+  ];
+  for (const { key, min, max, unaligned, rounded } of controls) {
+    const input = page.locator(`#${key}-value`);
+    const slider = page.locator(`#${key}`);
+    const initial = await input.inputValue();
+    await input.fill('');
+    await expect(slider).toHaveValue(initial);
+    await input.press('Tab');
+    await expect(input).toHaveValue(initial);
+    await input.fill('-10');
+    await expect(slider).toHaveValue(initial);
+    await input.press('Enter');
+    await expect(input).toHaveValue(min);
+    await expect(slider).toHaveValue(min);
+    await input.fill('999');
+    await input.press('Tab');
+    await expect(input).toHaveValue(max);
+    await expect(slider).toHaveValue(max);
+    await input.fill(unaligned);
+    await expect(slider).toHaveValue(max);
+    await input.press('Enter');
+    await expect(input).toHaveValue(rounded);
+    await expect(slider).toHaveValue(rounded);
+    await input.fill('');
+    await input.press('Escape');
+    await expect(input).toHaveValue(rounded);
+  }
+});
+
 test('hex color editing updates the picker, preview, saved draft and SVG export', async ({ page }) => {
   const hexInput = page.getByRole('textbox', { name: '十六进制笔画颜色' });
   const picker = page.getByLabel('自定义笔画颜色', { exact: true });
@@ -141,7 +221,7 @@ test('mobile has no horizontal overflow and transparent export preserves the bac
   await page.reload();
   await expect(page.locator('#export')).toBeEnabled();
   await page.locator('#lineHeight').fill('2');
-  await expect(page.locator('#lineHeight-value')).toHaveText('2.0×');
+  await expect(page.locator('#lineHeight-value')).toHaveValue('2');
   await page.locator('#background').selectOption('transparent');
   await page.locator('#alignment').selectOption('center');
   await page.locator('#loop').check();
@@ -162,9 +242,14 @@ for (const width of [1440, 900, 761, 760, 375, 320]) {
     const preview = page.locator('.preview-panel');
 
     await expect(editor.locator('details, summary')).toHaveCount(0);
-    for (const id of ['lineHeight', 'alignment', 'background', 'loop', 'color-value']) {
+    for (const id of ['lineHeight', 'alignment', 'background', 'loop', 'color-value', 'fontSize-value', 'lineHeight-value', 'speed-value', 'strokeWidth-value']) {
       await expect(editor.locator(`#${id}`)).toBeVisible();
     }
+    const valueAppearances = await editor.locator('.value-input').evaluateAll(elements => elements.map(element => {
+      const style = getComputedStyle(element);
+      return [style.backgroundColor, style.color, style.border, style.borderRadius, style.fontFamily, style.fontSize, style.padding, element.getBoundingClientRect().height];
+    }));
+    for (const appearance of valueAppearances) expect(appearance).toEqual(valueAppearances[0]);
     const colorCircleBox = (await editor.locator('.custom-color > span').boundingBox())!;
     const colorPlusBox = (await editor.locator('.custom-color path').boundingBox())!;
     expect(colorPlusBox.x + colorPlusBox.width / 2).toBeCloseTo(colorCircleBox.x + colorCircleBox.width / 2, 1);

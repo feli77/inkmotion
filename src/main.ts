@@ -17,6 +17,34 @@ const icons = {
   download: '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3v9m-3-3 3 3 3-3M4 13v3h12v-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 };
 
+const numericSettings = {
+  fontSize: { label: 'settings.size', min: 28, max: 96, step: 1, unit: 'px' },
+  lineHeight: { label: 'settings.lineHeight', min: 1.3, max: 2.4, step: 0.05, unit: '×' },
+  speed: { label: 'settings.speed', min: 0.25, max: 3, step: 0.25, unit: '×' },
+  strokeWidth: { label: 'settings.stroke', min: 0.8, max: 4, step: 0.1, unit: 'px' },
+} as const;
+type NumericSetting = keyof typeof numericSettings;
+const numericKeys = Object.keys(numericSettings) as NumericSetting[];
+
+function numericControl(key: NumericSetting): string {
+  const { label, min, max, step, unit } = numericSettings[key];
+  return `
+    <div class="control">
+      <div class="label-row">
+        <label for="${key}-value">${t(label)}</label>
+        <div class="value-input numeric-value"><input id="${key}-value" type="number" min="${min}" max="${max}" step="${step}" inputmode="${step === 1 ? 'numeric' : 'decimal'}" /><span aria-hidden="true">${unit}</span></div>
+      </div>
+      <input id="${key}" type="range" min="${min}" max="${max}" step="${step}" aria-label="${t(label)}" />
+    </div>
+  `;
+}
+
+function normalizeNumericValue(key: NumericSetting, value: number): number {
+  const { min, max, step } = numericSettings[key];
+  const clamped = Math.min(max, Math.max(min, value));
+  return Number((min + Math.round((clamped - min) / step) * step).toFixed(2));
+}
+
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <header class="header">
     <a class="brand" href="./" aria-label="InkMotion">${icons.pen}<span>InkMotion<span class="brand-dot">.</span></span></a>
@@ -48,8 +76,8 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
             <div class="group-fields">
               <div class="field"><label for="font">${t('font.label')}</label><select id="font">${fonts.map(font => `<option value="${font.id}">${t(font.nameKey)}</option>`).join('')}</select></div>
               <div class="paired-controls">
-                <div class="control"><div class="label-row"><label for="fontSize">${t('settings.size')}</label><output for="fontSize" id="fontSize-value"></output></div><input id="fontSize" type="range" min="28" max="96" step="1" /></div>
-                <div class="control"><div class="label-row"><label for="lineHeight">${t('settings.lineHeight')}</label><output for="lineHeight" id="lineHeight-value"></output></div><input id="lineHeight" type="range" min="1.3" max="2.4" step="0.05" /></div>
+                ${numericControl('fontSize')}
+                ${numericControl('lineHeight')}
               </div>
               <div class="field"><label for="alignment">${t('settings.alignment')}</label><select id="alignment"><option value="left">${t('settings.left')}</option><option value="center">${t('settings.center')}</option><option value="right">${t('settings.right')}</option></select></div>
             </div>
@@ -57,15 +85,15 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
           <section class="settings-group" aria-labelledby="writing-title">
             <h3 id="writing-title" class="group-title">${icons.settings}${t('settings.writing')}</h3>
             <div class="group-fields">
-              <div class="control"><div class="label-row"><label for="speed">${t('settings.speed')}</label><output for="speed" id="speed-value"></output></div><input id="speed" type="range" min="0.25" max="3" step="0.25" /></div>
-              <div class="control"><div class="label-row"><label for="strokeWidth">${t('settings.stroke')}</label><output for="strokeWidth" id="strokeWidth-value"></output></div><input id="strokeWidth" type="range" min="0.8" max="4" step="0.1" /></div>
+              ${numericControl('speed')}
+              ${numericControl('strokeWidth')}
               <label class="checkbox-label" for="loop"><span>${t('settings.loop')}</span><input id="loop" type="checkbox" /></label>
             </div>
           </section>
           <section class="settings-group appearance-group" aria-labelledby="appearance-title">
             <h3 id="appearance-title" class="group-title">${icons.palette}${t('settings.appearance')}</h3>
             <div class="group-fields">
-              <div class="color-field"><div class="label-row"><label for="color-value">${t('settings.color')}</label><input id="color-value" type="text" aria-label="${t('settings.hexColor')}" title="${t('settings.hexColorHint')}" spellcheck="false" autocomplete="off" autocapitalize="off" /></div><div class="colors">
+              <div class="color-field"><div class="label-row"><label for="color-value">${t('settings.color')}</label><input id="color-value" class="value-input" type="text" aria-label="${t('settings.hexColor')}" title="${t('settings.hexColorHint')}" spellcheck="false" autocomplete="off" autocapitalize="off" /></div><div class="colors">
                 ${['#a8e6cf', '#dcedc1', '#ffd3b6', '#ffaaa5', '#ff677d'].map(color => `<button type="button" class="swatch" data-color="${color}" style="--swatch:${color}" aria-label="${t('settings.color')} ${color}" aria-pressed="false"></button>`).join('')}
                 <div class="custom-color"><input id="color" type="color" aria-label="${t('settings.customColor')}" /><span aria-hidden="true">${icons.plus}</span></div>
               </div></div>
@@ -102,8 +130,8 @@ try {
   if (draft) {
     if (typeof draft.text === 'string') text = draft.text;
     const saved = draft.settings ?? {};
-    for (const [key, min, max] of [['fontSize', 28, 96], ['speed', 0.25, 3], ['strokeWidth', 0.8, 4], ['lineHeight', 1.3, 2.4]] as const) {
-      if (typeof saved[key] === 'number' && Number.isFinite(saved[key])) settings[key] = Math.min(max, Math.max(min, saved[key]));
+    for (const key of numericKeys) {
+      if (typeof saved[key] === 'number' && Number.isFinite(saved[key])) settings[key] = normalizeNumericValue(key, saved[key]);
     }
     if (/^#[0-9a-f]{6}$/i.test(saved.color)) settings.color = saved.color.toLowerCase();
     if (['left', 'center', 'right'].includes(saved.alignment)) settings.alignment = saved.alignment;
@@ -122,17 +150,16 @@ $<HTMLInputElement>('loop').checked = settings.loop;
 
 function updateLabels(): void {
   $('count').textContent = t('text.count', { count: Array.from(textInput.value).length });
-  $('speed-value').textContent = `${settings.speed.toFixed(2).replace(/0$/, '').replace(/\.0$/, '')}×`;
-  $('fontSize-value').textContent = `${settings.fontSize} px`;
-  $('strokeWidth-value').textContent = `${settings.strokeWidth.toFixed(1)} px`;
-  $('lineHeight-value').textContent = `${settings.lineHeight.toFixed(2).replace(/0$/, '')}×`;
   colorInput.value = settings.color;
   if (document.activeElement !== colorValueInput) colorValueInput.value = settings.color.toUpperCase();
   document.querySelectorAll<HTMLButtonElement>('.swatch').forEach(button => {
     button.setAttribute('aria-pressed', String(button.dataset.color === settings.color));
   });
-  for (const key of ['speed', 'fontSize', 'strokeWidth', 'lineHeight'] as const) {
+  for (const key of numericKeys) {
     const input = $<HTMLInputElement>(key);
+    const valueInput = $<HTMLInputElement>(`${key}-value`);
+    input.value = String(settings[key]);
+    if (document.activeElement !== valueInput) valueInput.value = String(settings[key]);
     input.style.setProperty('--fill', `${(Number(input.value) - Number(input.min)) / (Number(input.max) - Number(input.min)) * 100}%`);
   }
 }
@@ -210,10 +237,30 @@ async function selectFont(): Promise<void> {
 }
 
 textInput.addEventListener('input', () => scheduleRender(250));
-for (const key of ['speed', 'fontSize', 'strokeWidth', 'lineHeight'] as const) {
+for (const key of numericKeys) {
   $<HTMLInputElement>(key).addEventListener('input', event => {
     settings[key] = Number((event.target as HTMLInputElement).value);
     scheduleRender();
+  });
+  const valueInput = $<HTMLInputElement>(`${key}-value`);
+  const updateNumericValue = (commit = false): void => {
+    const value = valueInput.valueAsNumber;
+    if (Number.isFinite(value) && (commit || valueInput.validity.valid)) {
+      const normalized = normalizeNumericValue(key, value);
+      if (normalized !== settings[key]) {
+        settings[key] = normalized;
+        scheduleRender();
+      }
+    }
+    if (commit) valueInput.value = String(settings[key]);
+  };
+  valueInput.addEventListener('input', () => updateNumericValue());
+  valueInput.addEventListener('blur', () => updateNumericValue(true));
+  valueInput.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      updateNumericValue(true);
+    } else if (event.key === 'Escape') valueInput.value = String(settings[key]);
   });
 }
 colorInput.addEventListener('input', event => {
