@@ -9,6 +9,9 @@ setLocale(navigator.language);
 
 const icons = {
   pen: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 18c4-9 7-12 11-12-1 5-4 9-8 10l-3 2Zm3-2 5-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  type: '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m3 15 4-10 4 10M4.5 11h5M13 8.5c4-2 5 0 5 2v4.5m0-4c-6-1-6 5 0 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  settings: '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3 6h3m4 0h7M3 14h7m4 0h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="6" r="2" stroke="currentColor" stroke-width="1.4"/><circle cx="12" cy="14" r="2" stroke="currentColor" stroke-width="1.4"/></svg>',
+  palette: '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3a7 7 0 1 0 0 14h1a1.5 1.5 0 0 0 1.1-2.5 1.5 1.5 0 0 1 1.1-2.5H15a2 2 0 0 0 2-2 7 7 0 0 0-7-7Z" stroke="currentColor" stroke-width="1.4"/><circle cx="6" cy="10" r="1" fill="currentColor"/><circle cx="8" cy="6.5" r="1" fill="currentColor"/><circle cx="12" cy="6.5" r="1" fill="currentColor"/></svg>',
   replay: '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4.5 8a6 6 0 1 1 .5 5M4.5 8V3.5M4.5 8H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   download: '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3v9m-3-3 3 3 3-3M4 13v3h12v-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 };
@@ -21,23 +24,43 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <div class="intro"><h1>${t('app.description')}</h1></div>
     <div class="workspace">
       <section class="editor" aria-label="${t('app.title')}">
-        <div class="label-row"><label for="text">${t('text.label')}</label><span id="count" class="muted"></span></div>
-        <textarea id="text" spellcheck="false" placeholder="${t('text.placeholder')}" aria-describedby="text-hint warning"></textarea>
-        <p id="text-hint" class="hint">${t('text.hint')}</p>
-        <p id="warning" class="warning" role="status" hidden></p>
-        <div class="field font-field"><label for="font">${t('font.label')}</label><select id="font">${fonts.map(font => `<option value="${font.id}">${t(font.nameKey)}</option>`).join('')}</select></div>
-        <div class="control"><div class="label-row"><label for="speed">${t('settings.speed')}</label><output for="speed" id="speed-value"></output></div><input id="speed" type="range" min="0.25" max="3" step="0.25" /></div>
-        <div class="control"><div class="label-row"><label for="fontSize">${t('settings.size')}</label><output for="fontSize" id="fontSize-value"></output></div><input id="fontSize" type="range" min="28" max="96" step="1" /></div>
-        <div class="control"><div class="label-row"><label for="strokeWidth">${t('settings.stroke')}</label><output for="strokeWidth" id="strokeWidth-value"></output></div><input id="strokeWidth" type="range" min="0.8" max="4" step="0.1" /></div>
-        <div class="control"><div class="label-row"><label for="lineHeight">${t('settings.lineHeight')}</label><output for="lineHeight" id="lineHeight-value"></output></div><input id="lineHeight" type="range" min="1.3" max="2.4" step="0.05" /></div>
-        <div class="field"><label for="alignment">${t('settings.alignment')}</label><select id="alignment"><option value="left">${t('settings.left')}</option><option value="center">${t('settings.center')}</option><option value="right">${t('settings.right')}</option></select></div>
-        <div class="field"><label for="background">${t('settings.background')}</label><select id="background"><option value="#ffffff">${t('settings.white')}</option><option value="transparent">${t('settings.transparent')}</option></select></div>
-        <label class="checkbox-label" for="loop"><input id="loop" type="checkbox" />${t('settings.loop')}</label>
-        <div class="color-field"><label for="color">${t('settings.color')}</label><div class="colors">
-          ${['#a8e6cf', '#dcedc1', '#ffd3b6', '#ffaaa5', '#ff677d'].map(color => `<button type="button" class="swatch" data-color="${color}" style="--swatch:${color}" aria-label="${t('settings.color')} ${color}" aria-pressed="false"></button>`).join('')}
-          <div class="custom-color"><input id="color" type="color" aria-label="${t('settings.customColor')}" /><span aria-hidden="true">+</span></div>
-          <output id="color-value" for="color"></output>
-        </div></div>
+        <div class="text-panel">
+          <div class="label-row"><label for="text">${t('text.label')}</label><span id="count" class="muted"></span></div>
+          <textarea id="text" spellcheck="false" placeholder="${t('text.placeholder')}" aria-describedby="text-hint warning"></textarea>
+          <p id="text-hint" class="hint">${t('text.hint')}</p>
+          <p id="warning" class="warning" role="status" hidden></p>
+        </div>
+        <div class="settings-grid">
+          <section class="settings-group" aria-labelledby="typography-title">
+            <h3 id="typography-title" class="group-title">${icons.type}${t('settings.typography')}</h3>
+            <div class="group-fields">
+              <div class="field"><label for="font">${t('font.label')}</label><select id="font">${fonts.map(font => `<option value="${font.id}">${t(font.nameKey)}</option>`).join('')}</select></div>
+              <div class="paired-controls">
+                <div class="control"><div class="label-row"><label for="fontSize">${t('settings.size')}</label><output for="fontSize" id="fontSize-value"></output></div><input id="fontSize" type="range" min="28" max="96" step="1" /></div>
+                <div class="control"><div class="label-row"><label for="lineHeight">${t('settings.lineHeight')}</label><output for="lineHeight" id="lineHeight-value"></output></div><input id="lineHeight" type="range" min="1.3" max="2.4" step="0.05" /></div>
+              </div>
+              <div class="field"><label for="alignment">${t('settings.alignment')}</label><select id="alignment"><option value="left">${t('settings.left')}</option><option value="center">${t('settings.center')}</option><option value="right">${t('settings.right')}</option></select></div>
+            </div>
+          </section>
+          <section class="settings-group" aria-labelledby="writing-title">
+            <h3 id="writing-title" class="group-title">${icons.settings}${t('settings.writing')}</h3>
+            <div class="group-fields">
+              <div class="control"><div class="label-row"><label for="speed">${t('settings.speed')}</label><output for="speed" id="speed-value"></output></div><input id="speed" type="range" min="0.25" max="3" step="0.25" /></div>
+              <div class="control"><div class="label-row"><label for="strokeWidth">${t('settings.stroke')}</label><output for="strokeWidth" id="strokeWidth-value"></output></div><input id="strokeWidth" type="range" min="0.8" max="4" step="0.1" /></div>
+              <label class="checkbox-label" for="loop"><span>${t('settings.loop')}</span><input id="loop" type="checkbox" /></label>
+            </div>
+          </section>
+          <section class="settings-group appearance-group" aria-labelledby="appearance-title">
+            <h3 id="appearance-title" class="group-title">${icons.palette}${t('settings.appearance')}</h3>
+            <div class="group-fields">
+              <div class="color-field"><div class="label-row"><label for="color">${t('settings.color')}</label><output id="color-value" for="color"></output></div><div class="colors">
+                ${['#a8e6cf', '#dcedc1', '#ffd3b6', '#ffaaa5', '#ff677d'].map(color => `<button type="button" class="swatch" data-color="${color}" style="--swatch:${color}" aria-label="${t('settings.color')} ${color}" aria-pressed="false"></button>`).join('')}
+                <div class="custom-color"><input id="color" type="color" aria-label="${t('settings.customColor')}" /><span aria-hidden="true">+</span></div>
+              </div></div>
+              <div class="field"><label for="background">${t('settings.background')}</label><select id="background"><option value="#ffffff">${t('settings.white')}</option><option value="transparent">${t('settings.transparent')}</option></select></div>
+            </div>
+          </section>
+        </div>
       </section>
       <section class="preview-panel" aria-labelledby="preview-title">
         <div class="preview-header"><div><h2 id="preview-title">${t('preview.label')}</h2><span id="status" class="preview-status" role="status">${t('preview.loading')}</span></div>

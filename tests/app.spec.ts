@@ -112,6 +112,14 @@ for (const width of [1440, 900, 375, 320]) {
       expect(box.x).toBeGreaterThanOrEqual(editorBox.x);
       expect(box.x + box.width).toBeLessThanOrEqual(editorBox.x + editorBox.width);
     }
+    for (const group of await editor.locator('.settings-group').all()) {
+      const groupBox = (await group.boundingBox())!;
+      for (const control of await group.locator('input, select, button').all()) {
+        const box = (await control.boundingBox())!;
+        expect(box.x).toBeGreaterThanOrEqual(groupBox.x);
+        expect(box.x + box.width).toBeLessThanOrEqual(groupBox.x + groupBox.width);
+      }
+    }
 
     await page.screenshot({ path: testInfo.outputPath('layout.png'), fullPage: true });
   });
