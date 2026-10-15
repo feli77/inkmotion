@@ -33,7 +33,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         <div class="control"><div class="label-row"><label for="fontSize">${t('settings.size')}</label><output for="fontSize" id="fontSize-value"></output></div><input id="fontSize" type="range" min="28" max="96" step="1" /></div>
         <div class="control"><div class="label-row"><label for="strokeWidth">${t('settings.stroke')}</label><output for="strokeWidth" id="strokeWidth-value"></output></div><input id="strokeWidth" type="range" min="0.8" max="4" step="0.1" /></div>
         <div class="color-field"><label for="color">${t('settings.color')}</label><div class="colors">
-          ${['#171717', '#404040', '#737373', '#a3a3a3'].map(color => `<button type="button" class="swatch" data-color="${color}" style="--swatch:${color}" aria-label="${t('settings.color')} ${color}" aria-pressed="false"></button>`).join('')}
+          ${['#a8e6cf', '#dcedc1', '#ffd3b6', '#ffaaa5', '#ff677d'].map(color => `<button type="button" class="swatch" data-color="${color}" style="--swatch:${color}" aria-label="${t('settings.color')} ${color}" aria-pressed="false"></button>`).join('')}
           <div class="custom-color"><input id="color" type="color" aria-label="${t('settings.customColor')}" /><span aria-hidden="true">+</span></div>
           <output id="color-value" for="color"></output>
         </div></div>

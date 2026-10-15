@@ -24,9 +24,9 @@ test('editing updates preview, settings, playback and SVG downloads', async ({ p
   await expect(page.locator('#play')).toHaveAccessibleName('暂停');
   await page.locator('#speed').fill('2');
   await page.locator('#strokeWidth').fill('3');
-  await page.locator('[data-color="#404040"]').click();
+  await page.locator('[data-color="#ff677d"]').click();
   await expect(page.locator('#export')).toBeEnabled();
-  await expect(page.locator('#drawing > svg > g')).toHaveAttribute('stroke', '#404040');
+  await expect(page.locator('#drawing > svg > g')).toHaveAttribute('stroke', '#ff677d');
   const downloadEvent = page.waitForEvent('download');
   await page.locator('#export').click();
   const download = await downloadEvent;
@@ -36,7 +36,7 @@ test('editing updates preview, settings, playback and SVG downloads', async ({ p
   for await (const chunk of stream!) data += chunk.toString();
   expect(data).toContain('<animate');
   expect(data).toContain('Hello, InkMotion!');
-  expect(data).toContain('stroke="#404040"');
+  expect(data).toContain('stroke="#ff677d"');
   expect(data).not.toContain('<script');
   await page.locator('#export-mode').selectOption('static');
   const staticEvent = page.waitForEvent('download');

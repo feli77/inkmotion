@@ -56,7 +56,7 @@ input[type='range']::-moz-range-thumb { width: 10px; height: 10px; background: v
 .color-field { margin-top: 25px; }
 .colors { display: flex; align-items: center; gap: 10px; margin-top: 13px; }
 .swatch { width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: var(--swatch); flex: 0 0 auto; }
-.swatch[aria-pressed='true'] { outline: 1px solid var(--swatch); outline-offset: 3px; }
+.swatch[aria-pressed='true'] { outline: 1px solid var(--accent); outline-offset: 3px; }
 .custom-color { position: relative; width: 21px; height: 21px; }
 .custom-color input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .custom-color span { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; border: 1px solid var(--line); border-radius: 50%; color: var(--muted); font-size: 15px; pointer-events: none; }
