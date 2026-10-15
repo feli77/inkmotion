@@ -90,17 +90,17 @@ input[type='range']::-webkit-slider-thumb { appearance: none; width: 14px; heigh
 input[type='range']::-moz-range-thumb { width: 10px; height: 10px; background: var(--surface); border: 2px solid var(--accent); border-radius: 50%; }
 .colors { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 4px; margin: 0 -4px; }
 .palette-swatches { display: contents; }
-.swatch-item { position: relative; width: 28px; height: 28px; flex: 0 0 auto; }
-.colors.is-editing .swatch-item { margin: 4px 4px 0 0; }
-.swatch { width: 28px; height: 28px; padding: 0; border: 1px solid var(--swatch-border); border-radius: 50%; background: var(--swatch); flex: 0 0 auto; transition: transform .15s, box-shadow .15s; }
-.swatch:hover { transform: translateY(-2px); }
+.swatch { --swatch-scale: 1; position: relative; width: 28px; height: 28px; padding: 0; border: 1px solid var(--swatch-border); border-radius: 50%; background: var(--swatch); flex: 0 0 auto; transform: scale(var(--swatch-scale)); transition: transform .18s; user-select: none; -webkit-touch-callout: none; touch-action: pan-y; }
+@media (hover: hover) { .swatch:hover { --swatch-scale: 1.12; } }
+.swatch.is-pressed { transform: scale(1); transition-duration: .1s; }
+.swatch.is-rebounding { animation: swatch-rebound .32s both; }
+@keyframes swatch-rebound { 0% { transform: scale(1); } 55% { transform: scale(calc(var(--swatch-scale) * 1.08)); } 100% { transform: scale(var(--swatch-scale)); } }
 .swatch[aria-pressed='true'] { outline: 1px solid var(--accent); outline-offset: 3px; }
-.swatch-remove { position: absolute; top: -4px; right: -4px; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; padding: 2px; border: 1px solid var(--line); border-radius: 50%; background: var(--surface); color: var(--muted); }
-.swatch-remove svg { width: 10px; height: 10px; }
-.swatch-remove:hover { color: var(--accent); border-color: var(--control-border); }
-.palette-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 12px; }
-.palette-action { padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 11px; line-height: 1.5; }
-.palette-action:hover:not(:disabled), .palette-action[aria-pressed='true'] { color: var(--accent); }
+.swatch-delete { position: absolute; inset: 0; display: grid; place-items: center; color: var(--swatch-ink); opacity: 0; transition: opacity .12s; pointer-events: none; }
+.swatch.is-deleting .swatch-delete { opacity: 1; }
+.swatch-delete > svg { width: 12px; height: 12px; }
+.swatch-delete > .swatch-ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.swatch-progress { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; }
 .custom-color { position: relative; width: 28px; height: 28px; flex: 0 0 auto; }
 .custom-color input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .custom-color span { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; border: 1px dashed var(--control-border); border-radius: 50%; background: var(--surface); color: var(--muted); pointer-events: none; }

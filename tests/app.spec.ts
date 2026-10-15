@@ -318,7 +318,7 @@ test('hex editing accepts shorthand, preserves valid colors and stays in sync wi
   await picker.fill('#243042');
   await expect(hexInput).toHaveValue('#243042');
   await expect(ink).toHaveAttribute('stroke', '#243042');
-  await expect(page.locator('.swatch[aria-pressed="true"]')).toHaveCount(0);
+  await expect(page.locator('.swatch[data-color="#243042"]')).toHaveAttribute('aria-pressed', 'true');
   await hexInput.fill('FF677D');
   await expect(swatch).toHaveAttribute('aria-pressed', 'true');
 });

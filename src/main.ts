@@ -5,6 +5,7 @@ import type { ExportMode } from './export';
 import { fonts } from './fonts';
 import { getSelectChevron, icons } from './icons';
 import { getLocale, getPreferredLocale, locales, setLocale, t } from './i18n';
+import { bindPaletteHold } from './palette';
 import type { MessageKey } from './i18n';
 import type { FontData, RenderSettings, Scene } from './types';
 
@@ -110,7 +111,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
               <div class="color-field"><div class="label-row"><label for="color-value" data-i18n="settings.color">${t('settings.color')}</label><input id="color-value" class="value-input" type="text" data-i18n-aria-label="settings.hexColor" data-i18n-title="settings.hexColorHint" aria-label="${t('settings.hexColor')}" title="${t('settings.hexColorHint')}" spellcheck="false" autocomplete="off" autocapitalize="off" /></div><div id="palette" class="colors" role="group" data-i18n-aria-label="settings.palette" aria-label="${t('settings.palette')}">
                 <div id="palette-swatches" class="palette-swatches"></div>
                 <div class="custom-color"><input id="color" type="color" data-i18n-aria-label="settings.customColor" aria-label="${t('settings.customColor')}" /><span aria-hidden="true">${icons.plus}</span></div>
-              </div><div class="palette-actions"><button id="save-color" class="palette-action" type="button"></button><button id="edit-palette" class="palette-action" type="button" aria-controls="palette-swatches" aria-pressed="false"></button></div></div>
+              </div></div>
               <div class="field"><label for="background" data-i18n="settings.background">${t('settings.background')}</label><select id="background"><option value="#ffffff" data-i18n="settings.white">${t('settings.white')}</option><option value="transparent" data-i18n="settings.transparent">${t('settings.transparent')}</option></select></div>
             </div>
           </section>
@@ -156,11 +157,9 @@ const videoSupported = Boolean(getVideoMimeType());
 if (!videoSupported) $('export-video').setAttribute('data-i18n-title', 'export.videoUnsupported');
 const colorInput = $<HTMLInputElement>('color');
 const colorValueInput = $<HTMLInputElement>('color-value');
+let hexColorEdited = false;
 const paletteSwatches = $('palette-swatches');
-const saveColorButton = $<HTMLButtonElement>('save-color');
-const editPaletteButton = $<HTMLButtonElement>('edit-palette');
 let palette = ['#a8e6cf', '#dcedc1', '#ffd3b6', '#ffaaa5', '#ff677d'];
-let editingPalette = false;
 const paletteStorageKey = 'inkmotion.palette.v1';
 try {
   const saved: unknown = JSON.parse(localStorage.getItem(paletteStorageKey) ?? 'null');
@@ -205,29 +204,28 @@ function normalizeHexColor(value: string): string | undefined {
   return `#${hex.length === 3 ? hex.replace(/./g, '$&$&') : hex}`.toLowerCase();
 }
 
-function updatePaletteActions(): void {
-  const color = normalizeHexColor(colorValueInput.value);
-  const saved = color !== undefined && palette.includes(color);
-  saveColorButton.disabled = color === undefined || saved;
-  saveColorButton.textContent = t(saved ? 'settings.colorSaved' : 'settings.saveColor');
-  editPaletteButton.disabled = palette.length === 0;
-  editPaletteButton.textContent = t(editingPalette ? 'settings.finishPalette' : 'settings.editPalette');
-  editPaletteButton.setAttribute('aria-pressed', String(editingPalette));
+function swatchMarkup(color: string): string {
+  const [red, green, blue] = [1, 3, 5].map(index => parseInt(color.slice(index, index + 2), 16));
+  const ink = red * .299 + green * .587 + blue * .114 > 150 ? '#171717' : '#ffffff';
+  return `<button type="button" class="swatch" data-color="${color}" style="--swatch:${color};--swatch-ink:${ink}" aria-label="${t('settings.color')} ${color}" title="${t('settings.holdToDelete')}" aria-pressed="${color === settings.color}">
+    <span class="swatch-delete" aria-hidden="true">${icons.close}<svg class="swatch-ring" viewBox="0 0 28 28"><circle class="swatch-progress" cx="14" cy="14" r="11" pathLength="1" /></svg></span>
+  </button>`;
 }
 
 function renderPalette(): void {
-  $('palette').classList.toggle('is-editing', editingPalette);
-  paletteSwatches.innerHTML = palette.map(color => `
-    <div class="swatch-item">
-      <button type="button" class="swatch" data-color="${color}" style="--swatch:${color}" aria-label="${t('settings.color')} ${color}" aria-pressed="${color === settings.color}"></button>
-      ${editingPalette ? `<button type="button" class="swatch-remove" data-remove-color="${color}" aria-label="${t('settings.removeColor', { color: color.toUpperCase() })}" title="${t('settings.removeColor', { color: color.toUpperCase() })}">${icons.close}</button>` : ''}
-    </div>
-  `).join('');
-  updatePaletteActions();
+  cancelPaletteHold();
+  paletteSwatches.innerHTML = palette.map(swatchMarkup).join('');
 }
 
 function persistPalette(): void {
   try { localStorage.setItem(paletteStorageKey, JSON.stringify(palette)); } catch { /* Editing still works without storage. */ }
+}
+
+function savePaletteColor(color: string): void {
+  if (palette.includes(color)) return;
+  palette.push(color);
+  persistPalette();
+  paletteSwatches.insertAdjacentHTML('beforeend', swatchMarkup(color));
 }
 
 function updateLabels(): void {
@@ -237,7 +235,6 @@ function updateLabels(): void {
   document.querySelectorAll<HTMLButtonElement>('.swatch').forEach(button => {
     button.setAttribute('aria-pressed', String(button.dataset.color === settings.color));
   });
-  updatePaletteActions();
   for (const key of numericKeys) {
     const input = $<HTMLInputElement>(key);
     const valueInput = $<HTMLInputElement>(`${key}-value`);
@@ -443,6 +440,13 @@ colorInput.addEventListener('input', event => {
   settings.color = (event.target as HTMLInputElement).value;
   scheduleRender();
 });
+colorInput.addEventListener('change', () => {
+  if (settings.color !== colorInput.value) {
+    settings.color = colorInput.value;
+    scheduleRender();
+  }
+  savePaletteColor(settings.color);
+});
 function updateHexColor(commit = false): void {
   const color = normalizeHexColor(colorValueInput.value);
   if (color && (commit || /^#?[0-9a-f]{6}$/i.test(colorValueInput.value.trim()))) {
@@ -451,10 +455,16 @@ function updateHexColor(commit = false): void {
       scheduleRender();
     }
   }
-  if (commit) colorValueInput.value = settings.color.toUpperCase();
-  updatePaletteActions();
+  if (commit) {
+    colorValueInput.value = settings.color.toUpperCase();
+    if (color && hexColorEdited) savePaletteColor(color);
+    hexColorEdited = false;
+  }
 }
-colorValueInput.addEventListener('input', () => updateHexColor());
+colorValueInput.addEventListener('input', () => {
+  hexColorEdited = true;
+  updateHexColor();
+});
 colorValueInput.addEventListener('blur', () => updateHexColor(true));
 colorValueInput.addEventListener('keydown', event => {
   if (event.key === 'Enter') {
@@ -462,34 +472,22 @@ colorValueInput.addEventListener('keydown', event => {
     updateHexColor(true);
   } else if (event.key === 'Escape') {
     colorValueInput.value = settings.color.toUpperCase();
-    updatePaletteActions();
+    hexColorEdited = false;
   }
 });
-saveColorButton.addEventListener('click', () => {
-  updateHexColor(true);
-  if (palette.includes(settings.color)) return;
-  palette.push(settings.color);
+const cancelPaletteHold = bindPaletteHold(paletteSwatches, color => {
+  const index = palette.indexOf(color);
+  if (index < 0) return;
+  const focused = paletteSwatches.contains(document.activeElement);
+  palette.splice(index, 1);
   persistPalette();
-  renderPalette();
-  paletteSwatches.querySelector<HTMLButtonElement>(`[data-color="${settings.color}"]`)?.focus();
-});
-editPaletteButton.addEventListener('click', () => {
-  editingPalette = !editingPalette;
-  renderPalette();
+  paletteSwatches.querySelector(`[data-color="${color}"]`)?.remove();
+  if (focused) (paletteSwatches.querySelectorAll<HTMLButtonElement>('.swatch')[Math.min(index, palette.length - 1)] ?? colorInput).focus();
 });
 paletteSwatches.addEventListener('click', event => {
   const button = (event.target as Element).closest<HTMLButtonElement>('button');
   if (!button) return;
-  if (button.dataset.removeColor) {
-    const index = palette.indexOf(button.dataset.removeColor);
-    if (index < 0) return;
-    palette.splice(index, 1);
-    if (!palette.length) editingPalette = false;
-    persistPalette();
-    renderPalette();
-    const next = paletteSwatches.querySelectorAll<HTMLButtonElement>('.swatch-remove')[Math.min(index, palette.length - 1)];
-    (next ?? saveColorButton).focus();
-  } else if (button.dataset.color) {
+  if (button.dataset.color) {
     settings.color = button.dataset.color;
     scheduleRender(0);
   }
