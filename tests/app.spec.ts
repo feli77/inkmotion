@@ -164,6 +164,10 @@ for (const width of [1440, 900, 375, 320]) {
     for (const id of ['lineHeight', 'alignment', 'background', 'loop', 'color-value']) {
       await expect(editor.locator(`#${id}`)).toBeVisible();
     }
+    const colorCircleBox = (await editor.locator('.custom-color > span').boundingBox())!;
+    const colorPlusBox = (await editor.locator('.custom-color path').boundingBox())!;
+    expect(colorPlusBox.x + colorPlusBox.width / 2).toBeCloseTo(colorCircleBox.x + colorCircleBox.width / 2, 1);
+    expect(colorPlusBox.y + colorPlusBox.height / 2).toBeCloseTo(colorCircleBox.y + colorCircleBox.height / 2, 1);
     const editorBox = (await editor.boundingBox())!;
     const previewBox = (await preview.boundingBox())!;
     expect(previewBox.y).toBeGreaterThan(editorBox.y + editorBox.height);

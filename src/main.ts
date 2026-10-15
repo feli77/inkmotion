@@ -12,6 +12,7 @@ const icons = {
   type: '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m3 15 4-10 4 10M4.5 11h5M13 8.5c4-2 5 0 5 2v4.5m0-4c-6-1-6 5 0 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   settings: '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3 6h3m4 0h7M3 14h7m4 0h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="6" r="2" stroke="currentColor" stroke-width="1.4"/><circle cx="12" cy="14" r="2" stroke="currentColor" stroke-width="1.4"/></svg>',
   palette: '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3a7 7 0 1 0 0 14h1a1.5 1.5 0 0 0 1.1-2.5 1.5 1.5 0 0 1 1.1-2.5H15a2 2 0 0 0 2-2 7 7 0 0 0-7-7Z" stroke="currentColor" stroke-width="1.4"/><circle cx="6" cy="10" r="1" fill="currentColor"/><circle cx="8" cy="6.5" r="1" fill="currentColor"/><circle cx="12" cy="6.5" r="1" fill="currentColor"/></svg>',
+  plus: '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
   replay: '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4.5 8a6 6 0 1 1 .5 5M4.5 8V3.5M4.5 8H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   download: '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3v9m-3-3 3 3 3-3M4 13v3h12v-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 };
@@ -55,7 +56,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
             <div class="group-fields">
               <div class="color-field"><div class="label-row"><label for="color-value">${t('settings.color')}</label><input id="color-value" type="text" aria-label="${t('settings.hexColor')}" title="${t('settings.hexColorHint')}" spellcheck="false" autocomplete="off" autocapitalize="off" /></div><div class="colors">
                 ${['#a8e6cf', '#dcedc1', '#ffd3b6', '#ffaaa5', '#ff677d'].map(color => `<button type="button" class="swatch" data-color="${color}" style="--swatch:${color}" aria-label="${t('settings.color')} ${color}" aria-pressed="false"></button>`).join('')}
-                <div class="custom-color"><input id="color" type="color" aria-label="${t('settings.customColor')}" /><span aria-hidden="true">+</span></div>
+                <div class="custom-color"><input id="color" type="color" aria-label="${t('settings.customColor')}" /><span aria-hidden="true">${icons.plus}</span></div>
               </div></div>
               <div class="field"><label for="background">${t('settings.background')}</label><select id="background"><option value="#ffffff">${t('settings.white')}</option><option value="transparent">${t('settings.transparent')}</option></select></div>
             </div>
