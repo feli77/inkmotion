@@ -1,14 +1,14 @@
 import { exportSvg, LOOP_HOLD_SECONDS } from './export';
 import type { Scene } from './types';
 
-function createCanvas(scene: Scene): HTMLCanvasElement {
+export function createCanvas(scene: Scene): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = Math.ceil(scene.width);
   canvas.height = Math.ceil(scene.height);
   return canvas;
 }
 
-async function drawSvg(context: CanvasRenderingContext2D, svg: string): Promise<void> {
+export async function drawSvg(context: CanvasRenderingContext2D, svg: string): Promise<void> {
   const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
   try {
     const image = new Image();

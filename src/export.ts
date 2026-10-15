@@ -6,6 +6,17 @@ export type ExportMode = 'animated' | 'static';
 /** All strokes share this pause before a looping animation starts again. */
 export const LOOP_HOLD_SECONDS = 1;
 
+export function getVideoMimeType(): string | undefined {
+  if (typeof MediaRecorder === 'undefined' || typeof HTMLCanvasElement.prototype.captureStream !== 'function') return;
+  return [
+    'video/mp4;codecs=avc1.42E01E',
+    'video/mp4',
+    'video/webm;codecs=vp9',
+    'video/webm;codecs=vp8',
+    'video/webm',
+  ].find(type => MediaRecorder.isTypeSupported(type));
+}
+
 /** An adapter can produce any file without changing the handwriting engine. */
 export interface ExportAdapter {
   readonly id: string;
@@ -134,6 +145,13 @@ export const exportFormats: Readonly<Record<string, ExportAdapter>> = Object.fre
     mimeType: 'image/gif',
     mode: 'animated',
     serialize: async (scene: Scene) => (await import('./raster')).exportGif(scene),
+  }),
+  video: Object.freeze({
+    id: 'video',
+    get extension() { return getVideoMimeType()?.startsWith('video/mp4') ? 'mp4' : 'webm'; },
+    get mimeType() { return getVideoMimeType() ?? 'video/webm'; },
+    mode: 'animated',
+    serialize: async (scene: Scene) => (await import('./video')).exportVideo(scene),
   }),
 });
 

@@ -106,6 +106,69 @@ test('editing during a raster export keeps exports disabled and restores current
   for (const button of await page.locator('.export-controls button').all()) await expect(button).toBeEnabled();
 });
 
+test('video downloads and leaves the success status empty', async ({ page }, testInfo) => {
+  await page.locator('#text').fill('Hi');
+  await page.locator('#speed').fill('3');
+  const button = page.getByRole('button', { name: '视频', exact: true });
+  await expect(button).toBeEnabled();
+  await expect(button).toHaveAttribute('title', /MP4.*WebM/);
+  const downloadEvent = page.waitForEvent('download');
+  await button.click();
+  await expect(button).toHaveAttribute('aria-busy', 'true');
+  const download = await downloadEvent;
+  expect(download.suggestedFilename()).toBe('inkmotion-animated.mp4');
+  await download.saveAs(testInfo.outputPath('handwriting.mp4'));
+  expect(await download.failure()).toBeNull();
+  const stream = await download.createReadStream();
+  const chunks = [];
+  for await (const chunk of stream!) chunks.push(chunk);
+  expect(Buffer.concat(chunks).subarray(4, 8).toString()).toBe('ftyp');
+  for (const control of await page.locator('.export-controls button').all()) await expect(control).toBeEnabled();
+  await expect(page.locator('#status')).toBeEmpty();
+});
+
+test('unavailable video encoding disables only video export with a translated explanation', async ({ page }) => {
+  await page.addInitScript(() => { Object.defineProperty(window, 'MediaRecorder', { value: undefined }); });
+  await page.reload();
+  await expect(page.locator('#export')).toBeEnabled();
+  await expect(page.locator('#export-video')).toBeDisabled();
+  await expect(page.locator('#export-video')).toHaveAttribute('title', '当前浏览器不支持视频导出，请使用更新版本的浏览器。');
+  await expect(page.locator('#export-png')).toBeEnabled();
+  await expect(page.locator('#export-gif')).toBeEnabled();
+  await page.locator('#language-toggle').click();
+  await page.getByRole('menuitemradio', { name: 'English', exact: true }).click();
+  await expect(page.locator('#export-video')).toHaveAccessibleName('Video');
+  await expect(page.locator('#export-video')).toHaveAttribute('title', 'Video export is unavailable in this browser. Please use a newer browser.');
+});
+
+test('video download falls back to a correctly named WebM when MP4 recording is unavailable', async ({ page }) => {
+  await page.evaluate(() => {
+    const supported = MediaRecorder.isTypeSupported.bind(MediaRecorder);
+    MediaRecorder.isTypeSupported = type => type.startsWith('video/webm') && supported(type);
+  });
+  await page.locator('#text').fill('Hi');
+  await page.locator('#speed').fill('3');
+  await expect(page.locator('#export-video')).toBeEnabled();
+  const downloadEvent = page.waitForEvent('download');
+  await page.locator('#export-video').click();
+  const download = await downloadEvent;
+  expect(download.suggestedFilename()).toBe('inkmotion-animated.webm');
+  expect(await download.failure()).toBeNull();
+  const stream = await download.createReadStream();
+  const chunks = [];
+  for await (const chunk of stream!) chunks.push(chunk);
+  expect([...Buffer.concat(chunks).subarray(0, 4)]).toEqual([0x1a, 0x45, 0xdf, 0xa3]);
+  await expect(page.locator('#status')).toBeEmpty();
+});
+
+test('a video encoder error restores export controls and shows the existing failure message', async ({ page }) => {
+  await page.evaluate(() => { MediaRecorder.prototype.start = () => { throw new Error('Encoder failed'); }; });
+  await page.locator('#export-video').click();
+  await expect(page.locator('#status')).toHaveText('导出失败，请重试。');
+  await expect(page.locator('#export-video')).not.toHaveAttribute('aria-busy');
+  for (const button of await page.locator('.export-controls button').all()) await expect(button).toBeEnabled();
+});
+
 test('numeric settings update the preview, survive reload and stay in sync with sliders', async ({ page }) => {
   const controls = [
     { key: 'fontSize', label: '字号', value: '64', sliderValue: '72' },
@@ -346,7 +409,7 @@ for (const width of [1440, 900, 761, 760, 375, 320]) {
     expect(replayBox.y).toBeLessThan(canvasBox.y + 20);
     await expect(page.locator('#export-mode')).toHaveCount(0);
     const controls = page.locator('.export-controls button');
-    await expect(controls).toHaveCount(4);
+    await expect(controls).toHaveCount(5);
     const actionBoxes = await controls.evaluateAll(elements => elements.map(element => {
       const { x, y, width, height } = element.getBoundingClientRect();
       return { x, y, width, height };
@@ -358,7 +421,7 @@ for (const width of [1440, 900, 761, 760, 375, 320]) {
       if (index) expect(box.x).toBeCloseTo(actionBoxes[index - 1].x + actionBoxes[index - 1].width, 1);
     }
     expect(actionBoxes[0].x).toBeCloseTo(actionsBox.x + 1, 1);
-    expect(actionBoxes[3].x + actionBoxes[3].width).toBeCloseTo(actionsBox.x + actionsBox.width - 1, 1);
+    expect(actionBoxes[4].x + actionBoxes[4].width).toBeCloseTo(actionsBox.x + actionsBox.width - 1, 1);
     const exportPanel = page.locator('.export-controls');
     for (const property of ['background-color', 'border-top-color', 'border-top-width', 'border-radius', 'box-shadow']) {
       expect(await exportPanel.evaluate((element, name) => getComputedStyle(element).getPropertyValue(name), property))

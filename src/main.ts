@@ -1,6 +1,6 @@
 import './style.css';
 import { createScene, loadFont, Player, renderScene } from './engine';
-import { downloadExport } from './export';
+import { downloadExport, getVideoMimeType } from './export';
 import type { ExportMode } from './export';
 import { fonts } from './fonts';
 import { icons, selectChevron } from './icons';
@@ -63,6 +63,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
             <button id="export-static" class="preview-control" type="button" data-format="svg" data-mode="static" disabled>${icons.download}<span data-i18n="export.static">${t('export.static')}</span></button>
             <button id="export-png" class="preview-control" type="button" data-format="png" data-mode="static" disabled>${icons.download}<span data-i18n="export.png">${t('export.png')}</span></button>
             <button id="export-gif" class="preview-control" type="button" data-format="gif" data-mode="animated" disabled>${icons.download}<span data-i18n="export.gif">${t('export.gif')}</span></button>
+            <button id="export-video" class="preview-control" type="button" data-format="video" data-mode="animated" data-i18n-title="export.videoHint" title="${t('export.videoHint')}" disabled>${icons.download}<span data-i18n="export.video">${t('export.video')}</span></button>
           </div>
           <span id="status" class="preview-status" role="status">${t('preview.loading')}</span>
         </div>
@@ -119,6 +120,8 @@ const empty = $('empty');
 const warning = $('warning');
 const replayButton = $<HTMLButtonElement>('replay');
 const exportButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.export-controls button'));
+const videoSupported = Boolean(getVideoMimeType());
+if (!videoSupported) $('export-video').setAttribute('data-i18n-title', 'export.videoUnsupported');
 const colorInput = $<HTMLInputElement>('color');
 const colorValueInput = $<HTMLInputElement>('color-value');
 const paletteSwatches = $('palette-swatches');
@@ -233,7 +236,7 @@ function showWarning(message = ''): void {
 
 function updateExportButtons(pending = false): void {
   for (const button of exportButtons) {
-    button.disabled = pending || exporting || !font || !scene?.strokes.length || Boolean(scene?.unsupported.length);
+    button.disabled = pending || exporting || !font || !scene?.strokes.length || Boolean(scene?.unsupported.length) || (button.dataset.format === 'video' && !videoSupported);
   }
 }
 
