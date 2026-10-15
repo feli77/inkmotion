@@ -28,6 +28,8 @@ Use two-space indentation, single-quoted TypeScript strings, and semicolons. Use
 
 ## Architecture & Scope
 
+Follow the Less is More principle: implement the smallest solution that satisfies the requirements and avoid overengineering.
+
 Keep the application lightweight: native TypeScript, browser processing, and SVG animation. Preview and export share `Scene` data and SVG serialization; avoid separate timing implementations. Put UI strings in `i18n.ts`, fonts in the registry, and future formats behind `ExportAdapter`. Keep additional controls collapsed where practical.
 
 ## Testing Guidelines
@@ -36,4 +38,4 @@ Playwright runs headless Chromium. Use descriptive behavior names in `tests/<are
 
 ## Commit & Pull Request Guidelines
 
-The initial commit uses `feat: add lightweight handwriting animation tool`. Follow this concise, imperative style with appropriate prefixes such as `feat:`, `fix:`, or `docs:`. PRs should describe resulting behavior, reference relevant issues, report validation, and include screenshots for UI changes. Exclude generated output, credentials, and local environment files.
+After completing each task, automatically commit and push the task's changes. Use Conventional Commits for every commit message, with a concise, imperative description and an appropriate type such as `feat:`, `fix:`, or `docs:`. The initial commit uses `feat: add lightweight handwriting animation tool`. PRs should describe resulting behavior, reference relevant issues, report validation, and include screenshots for UI changes. Exclude generated output, credentials, and local environment files.
