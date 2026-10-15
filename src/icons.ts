@@ -1,4 +1,4 @@
-import { ChevronDown, createElement, Download, Palette, Plus, RotateCcw, SlidersHorizontal, Type } from 'lucide';
+import { Check, ChevronDown, createElement, Download, Languages, Palette, Plus, RotateCcw, SlidersHorizontal, Type } from 'lucide';
 import type { IconNode, SVGProps } from 'lucide';
 
 function iconSvg(node: IconNode, attributes: SVGProps = {}): string {
@@ -18,6 +18,8 @@ export const icons = {
   plus: iconSvg(Plus),
   replay: iconSvg(RotateCcw),
   download: iconSvg(Download),
+  languages: iconSvg(Languages),
+  check: iconSvg(Check),
 };
 
 export const selectChevron = `url("data:image/svg+xml,${encodeURIComponent(iconSvg(ChevronDown, { stroke: '#6b6b6b' }))}")`;

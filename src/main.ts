@@ -3,10 +3,11 @@ import { createScene, loadFont, Player, renderScene } from './engine';
 import { downloadExport } from './export';
 import { fonts } from './fonts';
 import { icons, selectChevron } from './icons';
-import { setLocale, t } from './i18n';
+import { getLocale, getPreferredLocale, locales, setLocale, t } from './i18n';
+import type { MessageKey } from './i18n';
 import type { FontData, RenderSettings, Scene } from './types';
 
-setLocale(navigator.language);
+setLocale(getPreferredLocale(), false);
 document.documentElement.style.setProperty('--select-chevron', selectChevron);
 
 const numericSettings = {
@@ -23,10 +24,10 @@ function numericControl(key: NumericSetting): string {
   return `
     <div class="control">
       <div class="label-row">
-        <label for="${key}-value">${t(label)}</label>
+        <label for="${key}-value" data-i18n="${label}">${t(label)}</label>
         <div class="value-input numeric-value"><input id="${key}-value" type="number" min="${min}" max="${max}" step="${step}" inputmode="${step === 1 ? 'numeric' : 'decimal'}" /><span aria-hidden="true">${unit}</span></div>
       </div>
-      <input id="${key}" type="range" min="${min}" max="${max}" step="${step}" aria-label="${t(label)}" />
+      <input id="${key}" type="range" min="${min}" max="${max}" step="${step}" data-i18n-aria-label="${label}" aria-label="${t(label)}" />
     </div>
   `;
 }
@@ -40,56 +41,62 @@ function normalizeNumericValue(key: NumericSetting, value: number): number {
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <header class="header">
     <a class="brand" href="./" aria-label="InkMotion">${icons.pen}<span>InkMotion<span class="brand-dot">.</span></span></a>
+    <div class="language-switcher">
+      <button id="language-toggle" class="language-toggle" type="button" aria-haspopup="menu" aria-controls="language-menu" aria-expanded="false" data-i18n-aria-label="language.label" data-i18n-title="language.label">${icons.languages}</button>
+      <div id="language-menu" class="language-menu" role="menu" aria-labelledby="language-toggle" hidden>
+        ${locales.map(locale => `<button type="button" role="menuitemradio" aria-checked="${locale.code === getLocale()}" tabindex="-1" data-locale="${locale.code}" lang="${locale.code}"><span>${locale.name}</span>${icons.check}</button>`).join('')}
+      </div>
+    </div>
   </header>
   <main>
-    <div class="intro"><h1>${t('app.description')}</h1></div>
+    <div class="intro"><h1 data-i18n="app.description">${t('app.description')}</h1></div>
     <div class="workspace">
-      <section class="preview-panel" aria-label="${t('preview.label')}">
-        <div class="paper-area"><div id="paper" class="paper"><div id="drawing" class="drawing"></div><div id="empty" class="empty-state">${t('preview.loading')}<button id="retry" type="button" hidden>${t('preview.retry')}</button></div></div></div>
+      <section class="preview-panel" data-i18n-aria-label="preview.label" aria-label="${t('preview.label')}">
+        <div class="paper-area"><div id="paper" class="paper"><div id="drawing" class="drawing"></div><div id="empty" class="empty-state"><span id="empty-message">${t('preview.loading')}</span><button id="retry" type="button" data-i18n="preview.retry" hidden>${t('preview.retry')}</button></div></div></div>
         <div class="preview-actions">
           <div class="export-controls">
-            <select id="export-mode" class="preview-control" aria-label="${t('export.mode')}"><option value="animated">${t('export.animated')}</option><option value="static">${t('export.static')}</option></select>
-            <button id="export" class="preview-control" type="button" disabled>${icons.download}<span>${t('export.label')}</span></button>
-            <button id="replay" class="preview-control" type="button" disabled>${icons.replay}<span>${t('player.replay')}</span></button>
+            <select id="export-mode" class="preview-control" data-i18n-aria-label="export.mode" aria-label="${t('export.mode')}"><option value="animated" data-i18n="export.animated">${t('export.animated')}</option><option value="static" data-i18n="export.static">${t('export.static')}</option></select>
+            <button id="export" class="preview-control" type="button" disabled>${icons.download}<span data-i18n="export.label">${t('export.label')}</span></button>
+            <button id="replay" class="preview-control" type="button" disabled>${icons.replay}<span data-i18n="player.replay">${t('player.replay')}</span></button>
           </div>
           <span id="status" class="preview-status" role="status">${t('preview.loading')}</span>
         </div>
       </section>
-      <section class="editor" aria-label="${t('app.title')}">
+      <section class="editor" data-i18n-aria-label="app.title" aria-label="${t('app.title')}">
         <div class="text-panel">
-          <div class="label-row"><label for="text">${t('text.label')}</label><span id="count" class="muted"></span></div>
-          <textarea id="text" spellcheck="false" placeholder="${t('text.placeholder')}" aria-describedby="text-hint warning"></textarea>
-          <p id="text-hint" class="hint">${t('text.hint')}</p>
+          <div class="label-row"><label for="text" data-i18n="text.label">${t('text.label')}</label><span id="count" class="muted"></span></div>
+          <textarea id="text" spellcheck="false" data-i18n-placeholder="text.placeholder" placeholder="${t('text.placeholder')}" aria-describedby="text-hint warning"></textarea>
+          <p id="text-hint" class="hint" data-i18n="text.hint">${t('text.hint')}</p>
           <p id="warning" class="warning" role="status" hidden></p>
         </div>
         <div class="settings-grid">
           <section class="settings-group" aria-labelledby="typography-title">
-            <h3 id="typography-title" class="group-title">${icons.type}${t('settings.typography')}</h3>
+            <h3 id="typography-title" class="group-title">${icons.type}<span data-i18n="settings.typography">${t('settings.typography')}</span></h3>
             <div class="group-fields">
-              <div class="field"><label for="font">${t('font.label')}</label><select id="font">${fonts.map(font => `<option value="${font.id}">${t(font.nameKey)}</option>`).join('')}</select></div>
+              <div class="field"><label for="font" data-i18n="font.label">${t('font.label')}</label><select id="font">${fonts.map(font => `<option value="${font.id}" data-i18n="${font.nameKey}">${t(font.nameKey)}</option>`).join('')}</select></div>
               <div class="paired-controls">
                 ${numericControl('fontSize')}
                 ${numericControl('lineHeight')}
               </div>
-              <div class="field"><label for="alignment">${t('settings.alignment')}</label><select id="alignment"><option value="left">${t('settings.left')}</option><option value="center">${t('settings.center')}</option><option value="right">${t('settings.right')}</option></select></div>
+              <div class="field"><label for="alignment" data-i18n="settings.alignment">${t('settings.alignment')}</label><select id="alignment"><option value="left" data-i18n="settings.left">${t('settings.left')}</option><option value="center" data-i18n="settings.center">${t('settings.center')}</option><option value="right" data-i18n="settings.right">${t('settings.right')}</option></select></div>
             </div>
           </section>
           <section class="settings-group" aria-labelledby="writing-title">
-            <h3 id="writing-title" class="group-title">${icons.settings}${t('settings.writing')}</h3>
+            <h3 id="writing-title" class="group-title">${icons.settings}<span data-i18n="settings.writing">${t('settings.writing')}</span></h3>
             <div class="group-fields">
               ${numericControl('speed')}
               ${numericControl('strokeWidth')}
-              <label class="checkbox-label" for="loop"><span>${t('settings.loop')}</span><input id="loop" type="checkbox" /></label>
+              <label class="checkbox-label" for="loop"><span data-i18n="settings.loop">${t('settings.loop')}</span><input id="loop" type="checkbox" /></label>
             </div>
           </section>
           <section class="settings-group appearance-group" aria-labelledby="appearance-title">
-            <h3 id="appearance-title" class="group-title">${icons.palette}${t('settings.appearance')}</h3>
+            <h3 id="appearance-title" class="group-title">${icons.palette}<span data-i18n="settings.appearance">${t('settings.appearance')}</span></h3>
             <div class="group-fields">
-              <div class="color-field"><div class="label-row"><label for="color-value">${t('settings.color')}</label><input id="color-value" class="value-input" type="text" aria-label="${t('settings.hexColor')}" title="${t('settings.hexColorHint')}" spellcheck="false" autocomplete="off" autocapitalize="off" /></div><div class="colors">
+              <div class="color-field"><div class="label-row"><label for="color-value" data-i18n="settings.color">${t('settings.color')}</label><input id="color-value" class="value-input" type="text" data-i18n-aria-label="settings.hexColor" data-i18n-title="settings.hexColorHint" aria-label="${t('settings.hexColor')}" title="${t('settings.hexColorHint')}" spellcheck="false" autocomplete="off" autocapitalize="off" /></div><div class="colors">
                 ${['#a8e6cf', '#dcedc1', '#ffd3b6', '#ffaaa5', '#ff677d'].map(color => `<button type="button" class="swatch" data-color="${color}" style="--swatch:${color}" aria-label="${t('settings.color')} ${color}" aria-pressed="false"></button>`).join('')}
-                <div class="custom-color"><input id="color" type="color" aria-label="${t('settings.customColor')}" /><span aria-hidden="true">${icons.plus}</span></div>
+                <div class="custom-color"><input id="color" type="color" data-i18n-aria-label="settings.customColor" aria-label="${t('settings.customColor')}" /><span aria-hidden="true">${icons.plus}</span></div>
               </div></div>
-              <div class="field"><label for="background">${t('settings.background')}</label><select id="background"><option value="#ffffff">${t('settings.white')}</option><option value="transparent">${t('settings.transparent')}</option></select></div>
+              <div class="field"><label for="background" data-i18n="settings.background">${t('settings.background')}</label><select id="background"><option value="#ffffff" data-i18n="settings.white">${t('settings.white')}</option><option value="transparent" data-i18n="settings.transparent">${t('settings.transparent')}</option></select></div>
             </div>
           </section>
         </div>
@@ -165,12 +172,95 @@ let scene: Scene | undefined;
 let player: Player | undefined;
 let renderTimer = 0;
 let fontRequest = 0;
+let statusMessage: MessageKey | undefined = 'preview.loading';
+let emptyMessage: MessageKey = 'preview.loading';
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 function showWarning(message = ''): void {
   warning.hidden = !message;
   warning.textContent = message;
 }
+
+function refreshMessages(): void {
+  $('status').textContent = statusMessage ? t(statusMessage) : '';
+  $('empty-message').textContent = t(emptyMessage);
+  showWarning(scene?.unsupported.length ? t('preview.unsupported', { chars: scene.unsupported.join(' ') }) : '');
+}
+
+function localizeInterface(): void {
+  for (const attribute of ['textContent', 'aria-label', 'placeholder', 'title']) {
+    const marker = attribute === 'textContent' ? 'data-i18n' : `data-i18n-${attribute}`;
+    document.querySelectorAll<HTMLElement>(`[${marker}]`).forEach(element => {
+      const message = t(element.getAttribute(marker) as MessageKey);
+      if (attribute === 'textContent') element.textContent = message;
+      else element.setAttribute(attribute, message);
+    });
+  }
+  document.querySelectorAll<HTMLButtonElement>('[data-locale]').forEach(button => {
+    button.setAttribute('aria-checked', String(button.dataset.locale === getLocale()));
+  });
+  document.querySelectorAll<HTMLButtonElement>('.swatch').forEach(button => {
+    button.setAttribute('aria-label', `${t('settings.color')} ${button.dataset.color}`);
+  });
+  // Update the accessible SVG description without restarting the current animation.
+  const description = drawing.querySelector('desc');
+  if (description) description.textContent = t('export.animatedDescription');
+  updateLabels();
+  refreshMessages();
+}
+
+const languageToggle = $<HTMLButtonElement>('language-toggle');
+const languageMenu = $('language-menu');
+const languageButtons = Array.from(languageMenu.querySelectorAll<HTMLButtonElement>('[data-locale]'));
+
+function toggleLanguageMenu(open: boolean, index = languageButtons.findIndex(button => button.dataset.locale === getLocale())): void {
+  languageMenu.hidden = !open;
+  languageToggle.setAttribute('aria-expanded', String(open));
+  if (open) languageButtons[index]?.focus();
+}
+
+languageToggle.addEventListener('click', () => toggleLanguageMenu(languageToggle.getAttribute('aria-expanded') !== 'true'));
+languageToggle.addEventListener('keydown', event => {
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    toggleLanguageMenu(true, event.key === 'ArrowDown' ? 0 : languageButtons.length - 1);
+  }
+});
+languageMenu.addEventListener('keydown', event => {
+  const index = languageButtons.indexOf(document.activeElement as HTMLButtonElement);
+  let next: number | undefined;
+  if (event.key === 'ArrowDown') next = (index + 1) % languageButtons.length;
+  if (event.key === 'ArrowUp') next = (index - 1 + languageButtons.length) % languageButtons.length;
+  if (event.key === 'Home') next = 0;
+  if (event.key === 'End') next = languageButtons.length - 1;
+  if (next !== undefined) {
+    event.preventDefault();
+    languageButtons[next].focus();
+  }
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    toggleLanguageMenu(false);
+    languageToggle.focus();
+  }
+  if (event.key === 'Tab') {
+    toggleLanguageMenu(false);
+    // Continue the normal tab order from the trigger rather than a hidden menu item.
+    languageToggle.focus();
+  }
+});
+languageButtons.forEach((button, index) => button.addEventListener('click', () => {
+  setLocale(locales[index].code);
+  localizeInterface();
+  toggleLanguageMenu(false);
+  languageToggle.focus();
+}));
+document.addEventListener('pointerdown', event => {
+  if (!(event.target as Element).closest('.language-switcher')) toggleLanguageMenu(false);
+});
+document.querySelector('.language-switcher')!.addEventListener('focusout', event => {
+  const next = (event as FocusEvent).relatedTarget as Node | null;
+  if (!next || !document.querySelector('.language-switcher')!.contains(next)) toggleLanguageMenu(false);
+});
 
 function render(): void {
   if (!font) return;
@@ -191,9 +281,9 @@ function render(): void {
     } else player.play();
   }
   empty.hidden = canPlay;
-  if (!canPlay) empty.firstChild!.textContent = t('preview.empty');
-  $('status').textContent = '';
-  showWarning(scene.unsupported.length ? t('preview.unsupported', { chars: scene.unsupported.join(' ') }) : '');
+  emptyMessage = 'preview.empty';
+  statusMessage = undefined;
+  refreshMessages();
   exportButton.disabled = !canPlay || scene.unsupported.length > 0;
   replayButton.disabled = !canPlay;
 }
@@ -211,7 +301,8 @@ async function selectFont(): Promise<void> {
   const request = ++fontRequest;
   font = undefined;
   exportButton.disabled = replayButton.disabled = true;
-  $('status').textContent = t('preview.loading');
+  statusMessage = emptyMessage = 'preview.loading';
+  refreshMessages();
   $<HTMLButtonElement>('retry').hidden = true;
   try {
     const selected = fonts.find(item => item.id === settings.fontId) ?? fonts[0];
@@ -221,9 +312,9 @@ async function selectFont(): Promise<void> {
     render();
   } catch {
     if (request !== fontRequest) return;
-    $('status').textContent = t('preview.failed');
+    statusMessage = emptyMessage = 'preview.failed';
     empty.hidden = false;
-    empty.firstChild!.textContent = t('preview.failed');
+    refreshMessages();
     $<HTMLButtonElement>('retry').hidden = false;
   }
 }
@@ -305,9 +396,10 @@ exportButton.addEventListener('click', async () => {
   try {
     const mode = $<HTMLSelectElement>('export-mode').value === 'static' ? 'static' : 'animated';
     await downloadExport(scene, 'svg', mode);
-    $('status').textContent = t('export.success');
-  } catch { $('status').textContent = t('export.failed'); }
+    statusMessage = 'export.success';
+  } catch { statusMessage = 'export.failed'; }
   finally { exportButton.disabled = !scene?.strokes.length || Boolean(scene?.unsupported.length); }
+  refreshMessages();
 });
 
 let previousWidth = 0;
@@ -319,5 +411,5 @@ new ResizeObserver(entries => {
   }
 }).observe(paper);
 
-updateLabels();
+localizeInterface();
 void selectFont();
