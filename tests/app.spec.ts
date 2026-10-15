@@ -77,6 +77,32 @@ test('mobile has no horizontal overflow and transparent export preserves the bac
   await page.screenshot({ path: 'test-results/mobile.png', fullPage: true });
 });
 
+for (const width of [1440, 900, 375, 320]) {
+  test(`settings stay above the full-width preview at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    const editor = page.locator('.editor');
+    const preview = page.locator('.preview-panel');
+
+    for (const expanded of [false, true]) {
+      if (expanded) await page.locator('summary').click();
+      const editorBox = (await editor.boundingBox())!;
+      const previewBox = (await preview.boundingBox())!;
+      expect(previewBox.y).toBeGreaterThan(editorBox.y + editorBox.height);
+      expect(previewBox.x).toBeCloseTo(editorBox.x, 1);
+      expect(previewBox.width).toBeCloseTo(editorBox.width, 1);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      for (const control of await editor.locator('textarea, input:visible, select:visible').all()) {
+        const box = (await control.boundingBox())!;
+        expect(box.x).toBeGreaterThanOrEqual(editorBox.x);
+        expect(box.x + box.width).toBeLessThanOrEqual(editorBox.x + editorBox.width);
+      }
+    }
+
+    await page.locator('#progress').fill('1');
+    await page.screenshot({ path: testInfo.outputPath('layout.png'), fullPage: true });
+  });
+}
+
 test('reduced motion shows completed text and retains manual playback', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.reload();

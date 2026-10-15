@@ -34,18 +34,20 @@ svg { display: block; }
 h1 { margin: 0; font-size: 22px; font-weight: 550; letter-spacing: .4px; line-height: 1.5; }
 .local-note { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); white-space: nowrap; }
 .local-note i { width: 5px; height: 5px; background: var(--accent); border-radius: 100%; }
-.workspace { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 24px; align-items: start; }
-.editor { padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
+.editor { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: 24px; padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.editor > .label-row, .editor > textarea, .editor > .hint, .editor > .warning, .color-field, .advanced { grid-column: 1 / -1; }
+.editor > .control { margin: 25px 0 0; }
 label { font-size: 13px; font-weight: 500; }
 .label-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 11px; }
 .muted, output { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
-textarea { display: block; width: 100%; min-height: 158px; resize: vertical; padding: 13px 14px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-subtle); color: var(--accent); font-size: 14px; line-height: 1.7; outline: none; transition: border-color .15s; }
+textarea { display: block; width: 100%; min-height: 122px; resize: vertical; padding: 13px 14px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-subtle); color: var(--accent); font-size: 14px; line-height: 1.7; outline: none; transition: border-color .15s; }
 textarea:focus { border-color: var(--accent); }
 textarea::placeholder { color: var(--muted); }
 .hint { margin: 9px 0 0; font-size: 10px; color: var(--muted); line-height: 1.6; }
 .warning { margin: 10px 0 0; font-size: 11px; font-weight: 500; color: var(--accent); line-height: 1.7; overflow-wrap: anywhere; }
 .field { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.font-field { display: block; margin: 25px 0 24px; }
+.font-field { display: block; margin: 25px 0 0; }
 .font-field label { display: block; margin-bottom: 10px; }
 select { appearance: none; border: 1px solid var(--line); border-radius: 8px; background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none'%3E%3Cpath d='m3 4.5 3 3 3-3' stroke='%236b6b6b' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 11px center; padding: 9px 30px 9px 11px; color: var(--accent); font-size: 12px; line-height: 1.4; }
 .font-field select { width: 100%; }
@@ -54,7 +56,7 @@ input[type='range'] { --fill: 0%; appearance: none; display: block; width: 100%;
 input[type='range']::-webkit-slider-thumb { appearance: none; width: 14px; height: 14px; background: var(--surface); border: 2px solid var(--accent); border-radius: 50%; box-shadow: 0 1px 3px #00000016; }
 input[type='range']::-moz-range-thumb { width: 10px; height: 10px; background: var(--surface); border: 2px solid var(--accent); border-radius: 50%; }
 .color-field { margin-top: 25px; }
-.colors { display: flex; align-items: center; gap: 10px; margin-top: 13px; }
+.colors { display: flex; align-items: center; gap: 10px; max-width: 320px; margin-top: 13px; }
 .swatch { width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: var(--swatch); flex: 0 0 auto; }
 .swatch[aria-pressed='true'] { outline: 1px solid var(--accent); outline-offset: 3px; }
 .custom-color { position: relative; width: 21px; height: 21px; }
@@ -103,7 +105,7 @@ footer a:hover { text-decoration: underline; }
 @media (min-width: 1400px) { main { padding-top: 25px; } }
 @media (max-width: 1050px) {
   .header, main, footer { padding-inline: 24px; }
-  .workspace { grid-template-columns: 270px minmax(0, 1fr); gap: 18px; }
+  .workspace { gap: 18px; }
   .editor { padding: 20px; }
   .preview-header { flex-wrap: wrap; }
   .paper-area { padding: 22px; }
@@ -115,14 +117,12 @@ footer a:hover { text-decoration: underline; }
   .intro { margin: 16px 0 22px; }
   h1 { font-size: 18px; }
   .local-note { display: none; }
-  .workspace { grid-template-columns: 1fr; }
-  .editor { display: grid; grid-template-columns: 1fr 1fr; column-gap: 22px; }
-  .editor > .label-row, textarea, .hint, .warning, .font-field, .color-field, .advanced { grid-column: 1 / -1; }
-  textarea { min-height: 122px; }
+  .editor { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 22px; }
+  .editor > .control { margin: 0 0 19px; }
+  .font-field { grid-column: 1 / -1; }
   .font-field { margin: 21px 0; display: flex; align-items: center; justify-content: space-between; }
   .font-field label { margin: 0; }
   .font-field select { width: 190px; }
-  .control { margin-bottom: 19px; }
   .color-field { margin-top: 0; }
   .advanced { margin-top: 20px; }
   .paper-area { min-height: 320px; max-height: 540px; padding: 20px; }
