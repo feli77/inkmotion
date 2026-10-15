@@ -24,6 +24,17 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <main>
     <div class="intro"><h1>${t('app.description')}</h1></div>
     <div class="workspace">
+      <section class="preview-panel" aria-label="${t('preview.label')}">
+        <div class="paper-area"><div id="paper" class="paper"><div id="drawing" class="drawing"></div><div id="empty" class="empty-state">${t('preview.loading')}<button id="retry" type="button" hidden>${t('preview.retry')}</button></div></div></div>
+        <div class="preview-actions">
+          <div class="export-controls">
+            <select id="export-mode" class="preview-control" aria-label="${t('export.mode')}"><option value="animated">${t('export.animated')}</option><option value="static">${t('export.static')}</option></select>
+            <button id="export" class="preview-control" type="button" disabled>${icons.download}<span>${t('export.label')}</span></button>
+            <button id="replay" class="preview-control" type="button" disabled>${icons.replay}<span>${t('player.replay')}</span></button>
+          </div>
+          <span id="status" class="preview-status" role="status">${t('preview.loading')}</span>
+        </div>
+      </section>
       <section class="editor" aria-label="${t('app.title')}">
         <div class="text-panel">
           <div class="label-row"><label for="text">${t('text.label')}</label><span id="count" class="muted"></span></div>
@@ -62,12 +73,6 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
             </div>
           </section>
         </div>
-      </section>
-      <section class="preview-panel" aria-labelledby="preview-title">
-        <div class="preview-header"><div><h2 id="preview-title">${t('preview.label')}</h2><span id="status" class="preview-status" role="status">${t('preview.loading')}</span></div>
-          <div class="export-controls"><select id="export-mode" aria-label="${t('export.mode')}"><option value="animated">${t('export.animated')}</option><option value="static">${t('export.static')}</option></select><button id="export" class="button-primary" type="button" disabled>${icons.download}<span>${t('export.label')}</span></button></div>
-        </div>
-        <div class="paper-area"><div id="paper" class="paper"><div class="paper-actions"><button id="replay" class="replay-button" type="button" aria-label="${t('player.replay')}" title="${t('player.replay')}" disabled>${icons.replay}</button></div><div id="drawing" class="drawing"></div><div id="empty" class="empty-state">${t('preview.loading')}<button id="retry" type="button" hidden>${t('preview.retry')}</button></div></div></div>
       </section>
     </div>
   </main>
@@ -168,7 +173,6 @@ function render(): void {
   }
   empty.hidden = canPlay;
   if (!canPlay) empty.firstChild!.textContent = t('preview.empty');
-  paper.classList.toggle('transparent', settings.background === 'transparent');
   $('status').textContent = '';
   showWarning(scene.unsupported.length ? t('preview.unsupported', { chars: scene.unsupported.join(' ') }) : '');
   exportButton.disabled = !canPlay || scene.unsupported.length > 0;

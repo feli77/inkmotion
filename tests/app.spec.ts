@@ -34,6 +34,7 @@ test('editing updates preview, settings, playback and SVG downloads', async ({ p
   expect(data).toContain('<animate');
   expect(data).toContain('Hello, InkMotion!');
   expect(data).toContain('stroke="#ff677d"');
+  expect(data).toMatch(/<rect[^>]+fill="#ffffff"/);
   expect(data).not.toContain('<script');
   await page.locator('#export-mode').selectOption('static');
   const staticEvent = page.waitForEvent('download');
@@ -151,8 +152,8 @@ test('mobile has no horizontal overflow and transparent export preserves the bac
   await page.screenshot({ path: 'test-results/mobile.png', fullPage: true });
 });
 
-for (const width of [1440, 900, 375, 320]) {
-  test(`settings stay above the full-width preview at ${width}px`, async ({ page }, testInfo) => {
+for (const width of [1440, 900, 761, 760, 375, 320]) {
+  test(`preview blends into the page above settings with responsive actions at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.reload();
@@ -170,28 +171,57 @@ for (const width of [1440, 900, 375, 320]) {
     expect(colorPlusBox.y + colorPlusBox.height / 2).toBeCloseTo(colorCircleBox.y + colorCircleBox.height / 2, 1);
     const editorBox = (await editor.boundingBox())!;
     const previewBox = (await preview.boundingBox())!;
-    expect(previewBox.y).toBeGreaterThan(editorBox.y + editorBox.height);
+    expect(editorBox.y).toBeGreaterThan(previewBox.y + previewBox.height);
     expect(previewBox.x).toBeCloseTo(editorBox.x, 1);
     expect(previewBox.width).toBeCloseTo(editorBox.width, 1);
+    await expect(preview.getByRole('heading')).toHaveCount(0);
+    for (const surface of [preview, page.locator('#paper')]) {
+      await expect(surface).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+      await expect(surface).toHaveCSS('background-image', 'none');
+      await expect(surface).toHaveCSS('border-top-width', '0px');
+      await expect(surface).toHaveCSS('box-shadow', 'none');
+    }
+    await expect(page.locator('#drawing > svg > rect')).toBeHidden();
     await expect(page.locator('#status')).toBeEmpty();
     await expect(preview.locator('#play, #progress, #time, .transport')).toHaveCount(0);
     const replay = page.locator('#replay');
     await expect(replay).toHaveAccessibleName('重新播放');
+    await expect(replay).toHaveText('重新播放');
     await expect(replay).toBeEnabled();
     const paperBox = (await page.locator('#paper').boundingBox())!;
     const paperArea = page.locator('.paper-area');
     const paperAreaBox = (await paperArea.boundingBox())!;
-    expect(paperAreaBox.x).toBeCloseTo(previewBox.x + 1, 1);
-    expect(paperAreaBox.width).toBeCloseTo(previewBox.width - 2, 1);
+    expect(paperAreaBox.x).toBeCloseTo(previewBox.x, 1);
     expect(paperBox.x).toBeCloseTo(paperAreaBox.x, 1);
     expect(paperBox.y).toBeCloseTo(paperAreaBox.y, 1);
     expect(paperBox.width).toBeCloseTo(await paperArea.evaluate(element => element.clientWidth), 1);
     expect(paperBox.height).toBeGreaterThanOrEqual(paperAreaBox.height);
-    const replayBox = (await replay.boundingBox())!;
-    const drawingBox = (await page.locator('#drawing').boundingBox())!;
-    expect(replayBox.x + replayBox.width).toBeCloseTo(paperBox.x + paperBox.width - 12, 1);
-    expect(replayBox.y).toBeCloseTo(paperBox.y + 12, 1);
-    expect(replayBox.y + replayBox.height).toBeLessThanOrEqual(drawingBox.y);
+    const actionsBox = (await page.locator('.preview-actions').boundingBox())!;
+    expect(actionsBox.x + actionsBox.width).toBeCloseTo(editorBox.x + editorBox.width, 1);
+    if (width > 760) {
+      expect(actionsBox.x).toBeGreaterThan(paperAreaBox.x + paperAreaBox.width);
+      expect(actionsBox.y + actionsBox.height / 2).toBeCloseTo(paperAreaBox.y + paperAreaBox.height / 2, 1);
+    } else {
+      expect(actionsBox.y).toBeGreaterThan(paperAreaBox.y + paperAreaBox.height);
+      expect(paperAreaBox.width).toBeCloseTo(previewBox.width, 1);
+    }
+    const controls = ['export-mode', 'export', 'replay'].map(id => page.locator(`#${id}`));
+    const actionBoxes = await Promise.all(controls.map(control => control.boundingBox()));
+    for (const box of actionBoxes) {
+      expect(box!.x).toBeCloseTo(actionsBox.x, 1);
+      expect(box!.width).toBeCloseTo(actionsBox.width, 1);
+      expect(box!.height).toBeCloseTo(actionBoxes[0]!.height, 1);
+    }
+    expect(actionBoxes[0]!.y + actionBoxes[0]!.height).toBeLessThan(actionBoxes[1]!.y);
+    expect(actionBoxes[1]!.y + actionBoxes[1]!.height).toBeLessThan(actionBoxes[2]!.y);
+    // Move away from the controls so all three share their resting appearance.
+    await page.mouse.move(0, 0);
+    const appearances = await Promise.all(controls.map(control => control.evaluate(element => {
+      const style = getComputedStyle(element);
+      return [style.backgroundColor, style.color, style.border, style.borderRadius, style.fontSize];
+    })));
+    expect(appearances[1]).toEqual(appearances[0]);
+    expect(appearances[2]).toEqual(appearances[0]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     for (const control of await editor.locator('textarea, input:visible, select:visible').all()) {
       const box = (await control.boundingBox())!;
