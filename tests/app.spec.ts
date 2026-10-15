@@ -251,7 +251,13 @@ for (const width of [1440, 900, 761, 760, 375, 320]) {
     }));
     for (const appearance of valueAppearances) expect(appearance).toEqual(valueAppearances[0]);
     const colorCircleBox = (await editor.locator('.custom-color > span').boundingBox())!;
-    const colorPlusBox = (await editor.locator('.custom-color path').boundingBox())!;
+    const colorPlusBox = await editor.locator('.custom-color svg').evaluate((svg: SVGSVGElement) => {
+      const bounds = svg.getBBox();
+      const matrix = svg.getScreenCTM()!;
+      const start = new DOMPoint(bounds.x, bounds.y).matrixTransform(matrix);
+      const end = new DOMPoint(bounds.x + bounds.width, bounds.y + bounds.height).matrixTransform(matrix);
+      return { x: start.x, y: start.y, width: end.x - start.x, height: end.y - start.y };
+    });
     expect(colorPlusBox.x + colorPlusBox.width / 2).toBeCloseTo(colorCircleBox.x + colorCircleBox.width / 2, 1);
     expect(colorPlusBox.y + colorPlusBox.height / 2).toBeCloseTo(colorCircleBox.y + colorCircleBox.height / 2, 1);
     const editorBox = (await editor.boundingBox())!;
