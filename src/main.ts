@@ -66,7 +66,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         <div class="preview-header"><div><h2 id="preview-title">${t('preview.label')}</h2><span id="status" class="preview-status" role="status">${t('preview.loading')}</span></div>
           <div class="export-controls"><select id="export-mode" aria-label="${t('export.mode')}"><option value="animated">${t('export.animated')}</option><option value="static">${t('export.static')}</option></select><button id="export" class="button-primary" type="button" disabled>${icons.download}<span>${t('export.label')}</span></button></div>
         </div>
-        <div class="paper-area"><div id="paper" class="paper"><div class="paper-actions"><button id="replay" class="replay-button" type="button" disabled>${icons.replay}<span>${t('player.replay')}</span></button></div><div id="drawing" class="drawing"></div><div id="empty" class="empty-state">${t('preview.loading')}<button id="retry" type="button" hidden>${t('preview.retry')}</button></div></div></div>
+        <div class="paper-area"><div id="paper" class="paper"><div class="paper-actions"><button id="replay" class="replay-button" type="button" aria-label="${t('player.replay')}" title="${t('player.replay')}" disabled>${icons.replay}</button></div><div id="drawing" class="drawing"></div><div id="empty" class="empty-state">${t('preview.loading')}<button id="retry" type="button" hidden>${t('preview.retry')}</button></div></div></div>
       </section>
     </div>
   </main>

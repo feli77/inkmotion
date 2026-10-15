@@ -1,7 +1,7 @@
 const zhCN = {
   'app.title': '手写动画',
   'app.description': '输入文字，转换为手写动画',
-  'text.label': '英文文本',
+  'text.label': '输入',
   'text.placeholder': '写下一句话…',
   'text.hint': '支持英文字母、数字、标点与换行',
   'text.count': '{count} 字符',
