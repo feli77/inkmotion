@@ -1,6 +1,7 @@
 import './style.css';
 import { createScene, loadFont, Player, renderScene } from './engine';
 import { downloadExport } from './export';
+import type { ExportMode } from './export';
 import { fonts } from './fonts';
 import { icons, selectChevron } from './icons';
 import { getLocale, getPreferredLocale, locales, setLocale, t } from './i18n';
@@ -52,12 +53,16 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <div class="intro"><h1 data-i18n="app.description">${t('app.description')}</h1></div>
     <div class="workspace">
       <section class="preview-panel" data-i18n-aria-label="preview.label" aria-label="${t('preview.label')}">
-        <div class="paper-area"><div id="paper" class="paper"><div id="drawing" class="drawing"></div><div id="empty" class="empty-state"><span id="empty-message">${t('preview.loading')}</span><button id="retry" type="button" data-i18n="preview.retry" hidden>${t('preview.retry')}</button></div></div></div>
+        <div class="canvas-preview">
+          <div class="paper-area"><div id="paper" class="paper"><div id="drawing" class="drawing"></div><div id="empty" class="empty-state"><span id="empty-message">${t('preview.loading')}</span><button id="retry" type="button" data-i18n="preview.retry" hidden>${t('preview.retry')}</button></div></div></div>
+          <button id="replay" class="replay-control" type="button" data-i18n-aria-label="player.replay" data-i18n-title="player.replay" aria-label="${t('player.replay')}" title="${t('player.replay')}" disabled>${icons.replay}</button>
+        </div>
         <div class="preview-actions">
           <div class="export-controls">
-            <select id="export-mode" class="preview-control" data-i18n-aria-label="export.mode" aria-label="${t('export.mode')}"><option value="animated" data-i18n="export.animated">${t('export.animated')}</option><option value="static" data-i18n="export.static">${t('export.static')}</option></select>
-            <button id="export" class="preview-control" type="button" disabled>${icons.download}<span data-i18n="export.label">${t('export.label')}</span></button>
-            <button id="replay" class="preview-control" type="button" disabled>${icons.replay}<span data-i18n="player.replay">${t('player.replay')}</span></button>
+            <button id="export" class="preview-control" type="button" data-format="svg" data-mode="animated" disabled>${icons.download}<span data-i18n="export.animated">${t('export.animated')}</span></button>
+            <button id="export-static" class="preview-control" type="button" data-format="svg" data-mode="static" disabled>${icons.download}<span data-i18n="export.static">${t('export.static')}</span></button>
+            <button id="export-png" class="preview-control" type="button" data-format="png" data-mode="static" disabled>${icons.download}<span data-i18n="export.png">${t('export.png')}</span></button>
+            <button id="export-gif" class="preview-control" type="button" data-format="gif" data-mode="animated" disabled>${icons.download}<span data-i18n="export.gif">${t('export.gif')}</span></button>
           </div>
           <span id="status" class="preview-status" role="status">${t('preview.loading')}</span>
         </div>
@@ -113,7 +118,7 @@ const paper = $('paper');
 const empty = $('empty');
 const warning = $('warning');
 const replayButton = $<HTMLButtonElement>('replay');
-const exportButton = $<HTMLButtonElement>('export');
+const exportButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('.export-controls button'));
 const colorInput = $<HTMLInputElement>('color');
 const colorValueInput = $<HTMLInputElement>('color-value');
 const paletteSwatches = $('palette-swatches');
@@ -215,6 +220,7 @@ let font: FontData | undefined;
 let scene: Scene | undefined;
 let player: Player | undefined;
 let renderTimer = 0;
+let exporting = false;
 let fontRequest = 0;
 let statusMessage: MessageKey | undefined = 'preview.loading';
 let emptyMessage: MessageKey = 'preview.loading';
@@ -223,6 +229,12 @@ const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 function showWarning(message = ''): void {
   warning.hidden = !message;
   warning.textContent = message;
+}
+
+function updateExportButtons(pending = false): void {
+  for (const button of exportButtons) {
+    button.disabled = pending || exporting || !font || !scene?.strokes.length || Boolean(scene?.unsupported.length);
+  }
 }
 
 function refreshMessages(): void {
@@ -305,6 +317,7 @@ document.querySelector('.language-switcher')!.addEventListener('focusout', event
 });
 
 function render(): void {
+  renderTimer = 0;
   if (!font) return;
   player?.destroy();
   player = undefined;
@@ -326,7 +339,7 @@ function render(): void {
   emptyMessage = 'preview.empty';
   statusMessage = undefined;
   refreshMessages();
-  exportButton.disabled = !canPlay || scene.unsupported.length > 0;
+  updateExportButtons();
   replayButton.disabled = !canPlay;
 }
 
@@ -334,7 +347,8 @@ function scheduleRender(delay = 120): void {
   clearTimeout(renderTimer);
   updateLabels();
   // Wait for the updated preview before exporting or replaying.
-  exportButton.disabled = replayButton.disabled = true;
+  updateExportButtons(true);
+  replayButton.disabled = true;
   persist();
   renderTimer = window.setTimeout(render, delay);
 }
@@ -342,7 +356,8 @@ function scheduleRender(delay = 120): void {
 async function selectFont(): Promise<void> {
   const request = ++fontRequest;
   font = undefined;
-  exportButton.disabled = replayButton.disabled = true;
+  updateExportButtons(true);
+  replayButton.disabled = true;
   statusMessage = emptyMessage = 'preview.loading';
   refreshMessages();
   $<HTMLButtonElement>('retry').hidden = true;
@@ -460,17 +475,23 @@ fontInput.addEventListener('change', () => {
 });
 $<HTMLButtonElement>('retry').addEventListener('click', () => void selectFont());
 replayButton.addEventListener('click', () => player?.restart());
-exportButton.addEventListener('click', async () => {
-  if (!scene || exportButton.disabled) return;
-  exportButton.disabled = true;
-  try {
-    const mode = $<HTMLSelectElement>('export-mode').value === 'static' ? 'static' : 'animated';
-    await downloadExport(scene, 'svg', mode);
-    statusMessage = 'export.success';
-  } catch { statusMessage = 'export.failed'; }
-  finally { exportButton.disabled = !scene?.strokes.length || Boolean(scene?.unsupported.length); }
+exportButtons.forEach(button => button.addEventListener('click', async () => {
+  if (!scene || button.disabled) return;
+  exporting = true;
+  updateExportButtons();
+  button.setAttribute('aria-busy', 'true');
+  statusMessage = undefined;
   refreshMessages();
-});
+  try {
+    await downloadExport(scene, button.dataset.format, button.dataset.mode as ExportMode);
+  } catch { statusMessage = 'export.failed'; }
+  finally {
+    exporting = false;
+    button.removeAttribute('aria-busy');
+    updateExportButtons(Boolean(renderTimer));
+  }
+  refreshMessages();
+}));
 
 let previousWidth = 0;
 new ResizeObserver(entries => {

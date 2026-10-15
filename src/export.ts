@@ -11,6 +11,7 @@ export interface ExportAdapter {
   readonly id: string;
   readonly extension: string;
   readonly mimeType: string;
+  readonly mode?: ExportMode;
   serialize(scene: Scene, mode: ExportMode): Blob | Promise<Blob>;
 }
 
@@ -48,9 +49,9 @@ function times(stroke: Stroke): { start: number; end: number } {
   return { start, end: Math.max(start + 0.0001, finite(stroke.end, start)) };
 }
 
-function pathSvg(stroke: Stroke, scene: Scene, mode: ExportMode, cycle: number): string {
+function pathSvg(stroke: Stroke, scene: Scene, mode: ExportMode, cycle: number, time?: number): string {
   const attributes = `d="${xml(stroke.d)}" transform="${xml(stroke.transform)}"`;
-  if (mode === 'static') return `    <path ${attributes}/>\n`;
+  if (mode === 'static' && time === undefined) return `    <path ${attributes}/>\n`;
 
   const length = positive(stroke.length, 0.001);
   // The extra gap keeps round caps hidden while a stroke is still waiting.
@@ -58,8 +59,14 @@ function pathSvg(stroke: Stroke, scene: Scene, mode: ExportMode, cycle: number):
   const clearance = positive(scene.settings.strokeWidth, 2) / scale + 2;
   const hiddenOffset = number(length + clearance);
   const { start, end } = times(stroke);
+  const dashAttributes = `pathLength="${number(length)}" stroke-dasharray="${number(length)} ${number(length + 2 * clearance)}"`;
+  if (time !== undefined) {
+    // Sample the same linear reveal and waiting opacity used by the SMIL below.
+    const progress = Math.min(1, Math.max(0, (time - start) / (end - start)));
+    return `    <path ${attributes} ${dashAttributes} stroke-dashoffset="${number((length + clearance) * (1 - progress))}" opacity="${time >= Math.max(start, 0.0001) ? 1 : 0}"/>\n`;
+  }
   const reveal = Math.max(start, 0.0001);
-  const path = `    <path ${attributes} pathLength="${number(length)}" stroke-dasharray="${number(length)} ${number(length + 2 * clearance)}" stroke-dashoffset="${hiddenOffset}" opacity="0">\n`;
+  const path = `    <path ${attributes} ${dashAttributes} stroke-dashoffset="${hiddenOffset}" opacity="0">\n`;
 
   if (!scene.settings.loop) {
     return path
@@ -80,8 +87,8 @@ function pathSvg(stroke: Stroke, scene: Scene, mode: ExportMode, cycle: number):
     + '    </path>\n';
 }
 
-/** Self-contained SVG: paths and SMIL only, with no scripts or font requests. */
-export function exportSvg(scene: Scene, mode: ExportMode = 'animated'): string {
+/** Self-contained SVG. A time samples a still frame of the same stroke timeline. */
+export function exportSvg(scene: Scene, mode: ExportMode = 'animated', time?: number): string {
   const width = number(positive(scene.width));
   const height = number(positive(scene.height));
   const ink = color(scene.settings.color, FALLBACK_INK);
@@ -103,7 +110,7 @@ export function exportSvg(scene: Scene, mode: ExportMode = 'animated'): string {
     + '  <metadata>Created with InkMotion. Font paths: Satisfy from Vara.js, https://github.com/akzhy/Vara.</metadata>\n'
     + background
     + `  <g fill="none" stroke="${ink}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round">\n`
-    + scene.strokes.map((stroke) => pathSvg(stroke, scene, mode, cycle)).join('')
+    + scene.strokes.map((stroke) => pathSvg(stroke, scene, mode, cycle, time)).join('')
     + '  </g>\n</svg>\n';
 }
 
@@ -114,16 +121,31 @@ export const exportFormats: Readonly<Record<string, ExportAdapter>> = Object.fre
     mimeType: 'image/svg+xml',
     serialize: (scene: Scene, mode: ExportMode) => new Blob([exportSvg(scene, mode)], { type: 'image/svg+xml;charset=utf-8' }),
   }),
+  png: Object.freeze({
+    id: 'png',
+    extension: 'png',
+    mimeType: 'image/png',
+    mode: 'static',
+    serialize: async (scene: Scene) => (await import('./raster')).exportPng(scene),
+  }),
+  gif: Object.freeze({
+    id: 'gif',
+    extension: 'gif',
+    mimeType: 'image/gif',
+    mode: 'animated',
+    serialize: async (scene: Scene) => (await import('./raster')).exportGif(scene),
+  }),
 });
 
 export async function downloadExport(scene: Scene, formatId = 'svg', mode: ExportMode = 'animated'): Promise<void> {
   const adapter = Object.hasOwn(exportFormats, formatId) ? exportFormats[formatId] : undefined;
   if (!adapter) throw new Error(`Unsupported export format: ${formatId}`);
-  const blob = await adapter.serialize(scene, mode);
+  const resolvedMode = adapter.mode ?? mode;
+  const blob = await adapter.serialize(scene, resolvedMode);
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = `inkmotion-${mode}.${adapter.extension}`;
+  anchor.download = `inkmotion-${resolvedMode}.${adapter.extension}`;
   anchor.hidden = true;
   document.body.append(anchor);
   try {

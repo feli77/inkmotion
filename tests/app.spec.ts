@@ -38,9 +38,8 @@ test('editing updates preview, settings, playback and SVG downloads', async ({ p
   expect(data).toContain('stroke="#ff677d"');
   expect(data).toMatch(/<rect[^>]+fill="#ffffff"/);
   expect(data).not.toContain('<script');
-  await page.locator('#export-mode').selectOption('static');
   const staticEvent = page.waitForEvent('download');
-  await page.locator('#export').click();
+  await page.locator('#export-static').click();
   const staticDownload = await staticEvent;
   const staticStream = await staticDownload.createReadStream();
   let staticData = '';
@@ -52,15 +51,59 @@ test('editing updates preview, settings, playback and SVG downloads', async ({ p
 test('empty and unsupported input prevent exporting; draft survives reload', async ({ page }) => {
   await page.locator('#text').fill('Hello 你好');
   await expect(page.locator('#warning')).toContainText('暂不支持');
-  await expect(page.locator('#export')).toBeDisabled();
+  for (const button of await page.locator('.export-controls button').all()) await expect(button).toBeDisabled();
   await page.locator('#text').fill('');
   await expect(page.locator('#empty')).toContainText('写点什么');
   await expect(page.locator('#replay')).toBeDisabled();
+  for (const button of await page.locator('.export-controls button').all()) await expect(button).toBeDisabled();
   await page.locator('#text').fill('A saved thought.');
   await expect(page.locator('#export')).toBeEnabled();
   await page.reload();
   await expect(page.locator('#text')).toHaveValue('A saved thought.');
   await expect(page.locator('#drawing title')).toHaveText('A saved thought.');
+});
+
+for (const format of ['png', 'gif']) {
+  test(`${format.toUpperCase()} downloads without showing a success message`, async ({ page }, testInfo) => {
+    await page.locator('#text').fill('Hi');
+    await page.locator('#speed').fill('3');
+    await expect(page.locator(`#export-${format}`)).toBeEnabled();
+    const downloadEvent = page.waitForEvent('download');
+    await page.locator(`#export-${format}`).click();
+    const download = await downloadEvent;
+    expect(download.suggestedFilename()).toBe(`inkmotion-${format === 'png' ? 'static' : 'animated'}.${format}`);
+    await download.saveAs(testInfo.outputPath(`handwriting.${format}`));
+    expect(await download.failure()).toBeNull();
+    const stream = await download.createReadStream();
+    const chunks = [];
+    for await (const chunk of stream!) chunks.push(chunk);
+    const bytes = Buffer.concat(chunks);
+    if (format === 'png') expect([...bytes.subarray(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+    else expect(bytes.subarray(0, 6).toString()).toBe('GIF89a');
+    for (const button of await page.locator('.export-controls button').all()) await expect(button).toBeEnabled();
+    await expect(page.locator('#status')).toBeEmpty();
+  });
+}
+
+test('editing during a raster export keeps exports disabled and restores current input eligibility', async ({ page }) => {
+  let release!: () => void;
+  const ready = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/src/raster.ts', async route => {
+    await ready;
+    await route.continue();
+  });
+  const downloadEvent = page.waitForEvent('download');
+  await page.locator('#export-png').click();
+  await expect(page.locator('#export-png')).toHaveAttribute('aria-busy', 'true');
+  await page.locator('#text').fill('Hello 你好');
+  await expect(page.locator('#warning')).toBeVisible();
+  for (const button of await page.locator('.export-controls button').all()) await expect(button).toBeDisabled();
+  release();
+  await downloadEvent;
+  await expect(page.locator('#export-png')).not.toHaveAttribute('aria-busy');
+  for (const button of await page.locator('.export-controls button').all()) await expect(button).toBeDisabled();
+  await page.locator('#text').fill('Ready again');
+  for (const button of await page.locator('.export-controls button').all()) await expect(button).toBeEnabled();
 });
 
 test('numeric settings update the preview, survive reload and stay in sync with sliders', async ({ page }) => {
@@ -279,7 +322,8 @@ for (const width of [1440, 900, 761, 760, 375, 320]) {
     await expect(preview.locator('#play, #progress, #time, .transport')).toHaveCount(0);
     const replay = page.locator('#replay');
     await expect(replay).toHaveAccessibleName('重新播放');
-    await expect(replay).toHaveText('重新播放');
+    await expect(replay).toHaveText('');
+    await expect(replay).toHaveAttribute('title', '重新播放');
     await expect(replay).toBeEnabled();
     const paperBox = (await page.locator('#paper').boundingBox())!;
     const paperArea = page.locator('.paper-area');
@@ -291,30 +335,35 @@ for (const width of [1440, 900, 761, 760, 375, 320]) {
     expect(paperBox.height).toBeGreaterThanOrEqual(paperAreaBox.height);
     const actionsBox = (await page.locator('.preview-actions').boundingBox())!;
     expect(actionsBox.x + actionsBox.width).toBeCloseTo(editorBox.x + editorBox.width, 1);
-    if (width > 760) {
-      expect(actionsBox.x).toBeGreaterThan(paperAreaBox.x + paperAreaBox.width);
-      expect(actionsBox.y + actionsBox.height / 2).toBeCloseTo(paperAreaBox.y + paperAreaBox.height / 2, 1);
-    } else {
-      expect(actionsBox.y).toBeGreaterThan(paperAreaBox.y + paperAreaBox.height);
-      expect(paperAreaBox.width).toBeCloseTo(previewBox.width, 1);
+    expect(actionsBox.y).toBeGreaterThan(paperAreaBox.y + paperAreaBox.height);
+    expect(paperAreaBox.width).toBeCloseTo(previewBox.width, 1);
+    expect(actionsBox.x).toBeCloseTo(editorBox.x, 1);
+    const canvasBox = (await page.locator('.canvas-preview').boundingBox())!;
+    const replayBox = (await replay.boundingBox())!;
+    expect(replayBox.x + replayBox.width).toBeLessThan(canvasBox.x + canvasBox.width);
+    expect(replayBox.x + replayBox.width).toBeGreaterThan(canvasBox.x + canvasBox.width - 20);
+    expect(replayBox.y).toBeGreaterThan(canvasBox.y);
+    expect(replayBox.y).toBeLessThan(canvasBox.y + 20);
+    await expect(page.locator('#export-mode')).toHaveCount(0);
+    const controls = page.locator('.export-controls button');
+    await expect(controls).toHaveCount(4);
+    const actionBoxes = await controls.evaluateAll(elements => elements.map(element => {
+      const { x, y, width, height } = element.getBoundingClientRect();
+      return { x, y, width, height };
+    }));
+    for (const [index, box] of actionBoxes.entries()) {
+      expect(box.y).toBeCloseTo(actionBoxes[0].y, 1);
+      expect(box.width).toBeCloseTo(actionBoxes[0].width, 0);
+      expect(box.height).toBeCloseTo(actionBoxes[0].height, 1);
+      if (index) expect(box.x).toBeCloseTo(actionBoxes[index - 1].x + actionBoxes[index - 1].width, 1);
     }
-    const controls = ['export-mode', 'export', 'replay'].map(id => page.locator(`#${id}`));
-    const actionBoxes = await Promise.all(controls.map(control => control.boundingBox()));
-    for (const box of actionBoxes) {
-      expect(box!.x).toBeCloseTo(actionsBox.x, 1);
-      expect(box!.width).toBeCloseTo(actionsBox.width, 1);
-      expect(box!.height).toBeCloseTo(actionBoxes[0]!.height, 1);
+    expect(actionBoxes[0].x).toBeCloseTo(actionsBox.x + 1, 1);
+    expect(actionBoxes[3].x + actionBoxes[3].width).toBeCloseTo(actionsBox.x + actionsBox.width - 1, 1);
+    const exportPanel = page.locator('.export-controls');
+    for (const property of ['background-color', 'border-top-color', 'border-top-width', 'border-radius', 'box-shadow']) {
+      expect(await exportPanel.evaluate((element, name) => getComputedStyle(element).getPropertyValue(name), property))
+        .toBe(await editor.evaluate((element, name) => getComputedStyle(element).getPropertyValue(name), property));
     }
-    expect(actionBoxes[0]!.y + actionBoxes[0]!.height).toBeLessThan(actionBoxes[1]!.y);
-    expect(actionBoxes[1]!.y + actionBoxes[1]!.height).toBeLessThan(actionBoxes[2]!.y);
-    // Move away from the controls so all three share their resting appearance.
-    await page.mouse.move(0, 0);
-    const appearances = await Promise.all(controls.map(control => control.evaluate(element => {
-      const style = getComputedStyle(element);
-      return [style.backgroundColor, style.color, style.border, style.borderRadius, style.fontSize];
-    })));
-    expect(appearances[1]).toEqual(appearances[0]);
-    expect(appearances[2]).toEqual(appearances[0]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     for (const control of await editor.locator('textarea, input:visible, select:visible').all()) {
       const box = (await control.boundingBox())!;

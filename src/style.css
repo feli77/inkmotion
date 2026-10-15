@@ -98,15 +98,23 @@ input[type='checkbox'] { appearance: none; position: relative; width: 34px; heig
 input[type='checkbox']::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 3px #00000018; transition: transform .15s; }
 input[type='checkbox']:checked { border-color: var(--accent); background: var(--accent); }
 input[type='checkbox']:checked::after { transform: translateX(14px); }
-.preview-panel { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 28px; min-width: 0; }
-.preview-actions { display: grid; justify-items: end; gap: 8px; width: 172px; min-width: 0; }
+.preview-panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; min-width: 0; }
+.canvas-preview { position: relative; min-width: 0; }
+.preview-actions { display: grid; gap: 8px; width: 100%; min-width: 0; }
 .preview-status { font-size: 10px; color: var(--muted); line-height: 1.5; text-align: right; }
 .preview-status:empty { display: none; }
-.export-controls { display: grid; gap: 8px; width: 100%; }
-.preview-control { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: 100%; height: 42px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background-color: var(--surface); color: var(--accent); font-size: 12px; line-height: 1.4; white-space: nowrap; transition: background-color .15s, border-color .15s; }
-select.preview-control { padding-inline: 30px; text-align: center; }
-.preview-control:hover:not(:disabled) { background-color: var(--surface-subtle); border-color: #c5c5c5; }
-.preview-control > svg { width: 17px; height: 17px; }
+.export-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: 0 4px 18px #00000003; overflow: hidden; }
+.preview-control { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; width: 100%; min-height: 58px; padding: 12px; border: 0; border-radius: 0; background: transparent; color: var(--accent); font-size: 13px; line-height: 1.5; transition: background-color .15s; }
+.preview-control + .preview-control { border-left: 1px solid var(--line); }
+.preview-control:hover:not(:disabled) { background-color: var(--surface-subtle); }
+.preview-control:focus-visible { outline-offset: -4px; }
+.preview-control > svg { width: 17px; height: 17px; flex-shrink: 0; }
+.preview-control > span { min-width: 0; overflow-wrap: anywhere; }
+.preview-control[aria-busy='true'] > svg { animation: export-pulse 1s ease-in-out infinite alternate; }
+.replay-control { position: absolute; top: 12px; right: 12px; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--muted); }
+.replay-control:hover:not(:disabled) { background: var(--surface-subtle); color: var(--accent); }
+.replay-control > svg { width: 18px; height: 18px; }
+@keyframes export-pulse { to { opacity: .25; } }
 .paper-area { min-width: 0; max-height: 660px; overflow: auto; }
 .paper { position: relative; display: flex; align-items: center; width: 100%; min-height: 260px; }
 .drawing { width: 100%; }
@@ -129,12 +137,13 @@ select.preview-control { padding-inline: 30px; text-align: center; }
   h1 { font-size: 18px; }
   .text-panel { padding: 22px 20px 20px; }
   .settings-grid { padding: 22px 20px 24px; gap: 24px; }
-  .preview-panel { grid-template-columns: minmax(0, 1fr); gap: 16px; }
-  .preview-actions { width: 100%; }
+  .preview-panel { gap: 16px; }
   .paper-area { max-height: 540px; }
   .paper { min-height: 220px; }
 }
 @media (max-width: 600px) {
+  .preview-control { flex-direction: column; gap: 5px; min-height: 76px; padding: 10px 6px; font-size: 12px; }
+  .replay-control { top: 8px; right: 8px; }
   .settings-grid { grid-template-columns: minmax(0, 1fr); }
   .settings-group + .settings-group { padding: 22px 0 0; border-left: 0; border-top: 1px solid var(--line); }
   .appearance-group .group-fields { grid-template-columns: minmax(0, 1fr); gap: 21px; }
@@ -143,4 +152,4 @@ select.preview-control { padding-inline: 30px; text-align: center; }
 @media (max-width: 420px) {
   .header, main { padding-inline: 14px; }
 }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

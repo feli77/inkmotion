@@ -41,7 +41,6 @@ test('switches every language without replacing the drawing or losing editor set
   await page.locator('#alignment').selectOption('right');
   await page.locator('#background').selectOption('transparent');
   await page.locator('#loop').check();
-  await page.locator('#export-mode').selectOption('static');
   await expect(page.locator('#export')).toBeEnabled();
   const svg = (await page.locator('#drawing > svg').elementHandle())!;
 
@@ -58,7 +57,9 @@ test('switches every language without replacing the drawing or losing editor set
     await expect(page.locator('#alignment')).toHaveValue('right');
     await expect(page.locator('#background')).toHaveValue('transparent');
     await expect(page.locator('#loop')).toBeChecked();
-    await expect(page.locator('#export-mode')).toHaveValue('static');
+    await expect(page.locator('#export-mode')).toHaveCount(0);
+    await expect(page.locator('#export-png')).toHaveText('PNG');
+    await expect(page.locator('#export-gif')).toHaveText('GIF');
     expect(await svg.evaluate(element => element === document.querySelector('#drawing > svg'))).toBe(true);
   }
 
@@ -100,10 +101,10 @@ test('translates accessible labels, warnings, empty states and export results im
   let data = '';
   for await (const chunk of stream!) data += chunk.toString();
   expect(data).toContain('Animated English handwriting strokes. Font paths: Vara.js / Satisfy.');
-  await expect(page.locator('#status')).toHaveText('SVG exported');
+  await expect(page.locator('#status')).toBeEmpty();
   await page.locator('#language-toggle').click();
   await page.getByRole('menuitemradio', { name: '简体中文', exact: true }).click();
-  await expect(page.locator('#status')).toHaveText('SVG 已导出');
+  await expect(page.locator('#status')).toBeEmpty();
   await expect(page.locator('#drawing desc')).toHaveText('英文手写笔画动画。字体路径来源：Vara.js / Satisfy。');
 
   await page.evaluate(() => { URL.createObjectURL = () => { throw new Error('Simulated export failure'); }; });
@@ -150,7 +151,7 @@ test('supports keyboard navigation, focus return and outside dismissal', async (
   await spanishToggle.click();
   await page.keyboard.press('Tab');
   await expect(page.locator('#language-menu')).toBeHidden();
-  await expect(page.locator('#export-mode')).toBeFocused();
+  await expect(page.locator('#replay')).toBeFocused();
   await spanishToggle.click();
   await page.keyboard.press('Shift+Tab');
   await expect(page.locator('.brand')).toBeFocused();
