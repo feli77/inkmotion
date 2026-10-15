@@ -26,6 +26,11 @@ const numericSettings = {
 } as const;
 type NumericSetting = keyof typeof numericSettings;
 const numericKeys = Object.keys(numericSettings) as NumericSetting[];
+const alignmentOptions = [
+  { value: 'left', label: 'settings.left', icon: icons.alignLeft },
+  { value: 'center', label: 'settings.center', icon: icons.alignCenter },
+  { value: 'right', label: 'settings.right', icon: icons.alignRight },
+] as const;
 const colorSettings = {
   color: { label: 'settings.color', custom: 'settings.customColor', hex: 'settings.hexColor', palette: 'settings.palette', paletteId: 'palette' },
   background: { label: 'settings.background', custom: 'settings.customBackground', hex: 'settings.hexBackground', palette: 'settings.backgroundPalette', paletteId: 'background-palette' },
@@ -113,7 +118,12 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
                 ${numericControl('fontSize')}
                 ${numericControl('lineHeight')}
               </div>
-              <div class="field"><label for="alignment" data-i18n="settings.alignment">${t('settings.alignment')}</label><select id="alignment"><option value="left" data-i18n="settings.left">${t('settings.left')}</option><option value="center" data-i18n="settings.center">${t('settings.center')}</option><option value="right" data-i18n="settings.right">${t('settings.right')}</option></select></div>
+              <div class="field">
+                <span id="alignment-label" class="field-label" data-i18n="settings.alignment">${t('settings.alignment')}</span>
+                <div id="alignment" class="alignment-controls" role="group" aria-labelledby="alignment-label">
+                  ${alignmentOptions.map(({ value, label, icon }) => `<button type="button" data-alignment="${value}" data-i18n-aria-label="${label}" data-i18n-title="${label}" aria-label="${t(label)}" title="${t(label)}" aria-pressed="false">${icon}</button>`).join('')}
+                </div>
+              </div>
             </div>
           </section>
           <section class="settings-group" aria-labelledby="writing-title">
@@ -162,6 +172,7 @@ systemTheme.addEventListener('change', () => {
 
 const textInput = $<HTMLTextAreaElement>('text');
 const fontInput = $<HTMLSelectElement>('font');
+const alignmentButtons = Array.from($('alignment').querySelectorAll<HTMLButtonElement>('button'));
 const drawing = $('drawing');
 const paper = $('paper');
 const empty = $('empty');
@@ -215,7 +226,7 @@ try {
 
 textInput.value = text;
 fontInput.value = settings.fontId;
-for (const key of ['speed', 'fontSize', 'strokeWidth', 'lineHeight', 'alignment'] as const) {
+for (const key of numericKeys) {
   $<HTMLInputElement>(key).value = String(settings[key]);
 }
 $<HTMLInputElement>('loop').checked = settings.loop;
@@ -258,6 +269,9 @@ function savePaletteColor(control: ColorControl, color: string): void {
 
 function updateLabels(): void {
   $('count').textContent = t('text.count', { count: Array.from(textInput.value).length });
+  for (const button of alignmentButtons) {
+    button.setAttribute('aria-pressed', String(button.dataset.alignment === settings.alignment));
+  }
   for (const control of colorControls) {
     const color = settings[control.key];
     control.input.value = color === 'transparent' ? '#ffffff' : color;
@@ -529,10 +543,12 @@ for (const control of colorControls) {
     }
   });
 }
-$<HTMLSelectElement>('alignment').addEventListener('change', event => {
-  settings.alignment = (event.target as HTMLSelectElement).value as RenderSettings['alignment'];
-  scheduleRender(0);
-});
+for (const button of alignmentButtons) {
+  button.addEventListener('click', () => {
+    settings.alignment = button.dataset.alignment as RenderSettings['alignment'];
+    scheduleRender(0);
+  });
+}
 $<HTMLInputElement>('loop').addEventListener('change', event => {
   settings.loop = (event.target as HTMLInputElement).checked;
   scheduleRender(0);

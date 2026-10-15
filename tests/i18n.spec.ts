@@ -38,7 +38,7 @@ test('switches every language without replacing the drawing or losing editor set
   await page.locator('#text').fill('Keep this draft.');
   await page.locator('#fontSize-value').fill('64');
   await page.locator('#color-value').fill('#123456');
-  await page.locator('#alignment').selectOption('right');
+  await page.locator('#alignment [data-alignment="right"]').click();
   await page.locator('#background-palette [data-color="transparent"]').click();
   await page.locator('#loop').check();
   await expect(page.locator('#export')).toBeEnabled();
@@ -54,7 +54,7 @@ test('switches every language without replacing the drawing or losing editor set
     await expect(page.locator('#text')).toHaveValue('Keep this draft.');
     await expect(page.locator('#fontSize-value')).toHaveValue('64');
     await expect(page.locator('#color-value')).toHaveValue('#123456');
-    await expect(page.locator('#alignment')).toHaveValue('right');
+    await expect(page.locator('#alignment [data-alignment="right"]')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('#background-palette [data-color="transparent"]')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('#loop')).toBeChecked();
     await expect(page.locator('#export-mode')).toHaveCount(0);
@@ -79,6 +79,10 @@ test('translates accessible labels, warnings, empty states and export results im
   await expect(page.locator('#count')).toHaveText('8 字符');
   await expect(page.locator('#export')).toBeDisabled();
   await expect(page.getByRole('slider', { name: '字号', exact: true })).toBeVisible();
+  const alignment = page.getByRole('group', { name: '对齐', exact: true });
+  for (const name of ['左对齐', '居中', '右对齐']) {
+    await expect(alignment.getByRole('button', { name, exact: true })).toHaveAttribute('title', name);
+  }
   await expect(page.getByRole('textbox', { name: '十六进制笔画颜色' })).toHaveAttribute('title', /输入 3 位或 6 位/);
   await expect(page.locator('.swatch').first()).toHaveAccessibleName('笔画颜色 #a8e6cf');
   await expect(page.locator('#text')).toHaveAttribute('placeholder', '写下一句话…');
@@ -90,6 +94,9 @@ test('translates accessible labels, warnings, empty states and export results im
   await page.locator('#language-toggle').click();
   await page.getByRole('menuitemradio', { name: 'English', exact: true }).click();
   await expect(page.locator('#empty-message')).toHaveText('Write something to start your handwriting animation');
+  for (const name of ['Left', 'Center', 'Right']) {
+    await expect(page.getByRole('group', { name: 'Alignment', exact: true }).getByRole('button', { name, exact: true })).toHaveAttribute('title', name);
+  }
   await expect(page.locator('#count')).toHaveText('Characters: 0');
   await expect(page.locator('#warning')).toBeHidden();
 

@@ -331,7 +331,7 @@ test('mobile has no horizontal overflow and transparent export preserves the bac
   await page.locator('#lineHeight').fill('2');
   await expect(page.locator('#lineHeight-value')).toHaveValue('2');
   await page.locator('#background-palette [data-color="transparent"]').click();
-  await page.locator('#alignment').selectOption('center');
+  await page.getByRole('button', { name: '居中', exact: true }).click();
   await page.locator('#loop').check();
   await expect(page.locator('#export')).toBeEnabled();
   await expect(page.locator('#drawing > svg > rect')).toHaveCount(0);
@@ -352,6 +352,17 @@ for (const width of [1440, 900, 761, 760, 375, 320]) {
     await expect(editor.locator('details, summary')).toHaveCount(0);
     for (const id of ['lineHeight', 'alignment', 'background', 'loop', 'color-value', 'fontSize-value', 'lineHeight-value', 'speed-value', 'strokeWidth-value']) {
       await expect(editor.locator(`#${id}`)).toBeVisible();
+    }
+    const alignmentBox = (await page.locator('#alignment').boundingBox())!;
+    let previousRight = alignmentBox.x;
+    for (const button of await page.locator('#alignment button').all()) {
+      const box = (await button.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(previousRight);
+      expect(box.y).toBeGreaterThanOrEqual(alignmentBox.y);
+      expect(box.y + box.height).toBeLessThanOrEqual(alignmentBox.y + alignmentBox.height);
+      expect(box.x + box.width).toBeLessThanOrEqual(alignmentBox.x + alignmentBox.width);
+      expect(box.width).toBeGreaterThanOrEqual(44);
+      previousRight = box.x + box.width;
     }
     const valueAppearances = await editor.locator('.value-input').evaluateAll(elements => elements.map(element => {
       const style = getComputedStyle(element);
