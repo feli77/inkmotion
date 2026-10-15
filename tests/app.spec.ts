@@ -60,6 +60,80 @@ test('empty and unsupported input prevent exporting; draft survives reload', asy
   await expect(page.locator('#drawing title')).toHaveText('A saved thought.');
 });
 
+test('hex color editing updates the picker, preview, saved draft and SVG export', async ({ page }) => {
+  const hexInput = page.getByRole('textbox', { name: '十六进制笔画颜色' });
+  const picker = page.getByLabel('自定义笔画颜色', { exact: true });
+  const ink = page.locator('#drawing > svg > g');
+  await expect(hexInput).toHaveValue('#171717');
+  await hexInput.fill('#1a2B3c');
+  await expect(ink).toHaveAttribute('stroke', '#1a2b3c');
+  await expect(picker).toHaveValue('#1a2b3c');
+  await hexInput.press('Tab');
+  await expect(hexInput).toHaveValue('#1A2B3C');
+
+  await hexInput.fill('');
+  await hexInput.pressSequentially('aBc123');
+  await expect(hexInput).toHaveValue('aBc123');
+  await expect(ink).toHaveAttribute('stroke', '#abc123');
+  await hexInput.press('Enter');
+  await expect(hexInput).toHaveValue('#ABC123');
+  await page.reload();
+  await expect(hexInput).toHaveValue('#ABC123');
+  await expect(picker).toHaveValue('#abc123');
+  await expect(ink).toHaveAttribute('stroke', '#abc123');
+  await expect(page.locator('#export')).toBeEnabled();
+
+  const downloadEvent = page.waitForEvent('download');
+  await page.locator('#export').click();
+  const download = await downloadEvent;
+  const stream = await download.createReadStream();
+  let data = '';
+  for await (const chunk of stream!) data += chunk.toString();
+  expect(data).toContain('stroke="#abc123"');
+});
+
+test('hex editing accepts shorthand, preserves valid colors and stays in sync with color controls', async ({ page }) => {
+  const hexInput = page.locator('#color-value');
+  const picker = page.locator('#color');
+  const ink = page.locator('#drawing > svg > g');
+  await hexInput.fill(' #aBc ');
+  await expect(ink).toHaveAttribute('stroke', '#171717');
+  await hexInput.press('Enter');
+  await expect(hexInput).toHaveValue('#AABBCC');
+  await expect(picker).toHaveValue('#aabbcc');
+  await expect(ink).toHaveAttribute('stroke', '#aabbcc');
+  await hexInput.fill('f6A');
+  await hexInput.press('Tab');
+  await expect(hexInput).toHaveValue('#FF66AA');
+  await expect(ink).toHaveAttribute('stroke', '#ff66aa');
+
+  for (const invalid of ['#12', '#GG1234', '#12345678', '']) {
+    await hexInput.fill(invalid);
+    await expect(ink).toHaveAttribute('stroke', '#ff66aa');
+    await hexInput.press('Tab');
+    await expect(hexInput).toHaveValue('#FF66AA');
+    await expect(picker).toHaveValue('#ff66aa');
+  }
+  await hexInput.fill('#12');
+  await hexInput.press('Escape');
+  await expect(hexInput).toHaveValue('#FF66AA');
+  await page.reload();
+  await expect(hexInput).toHaveValue('#FF66AA');
+  await expect(ink).toHaveAttribute('stroke', '#ff66aa');
+
+  const swatch = page.locator('[data-color="#ff677d"]');
+  await swatch.click();
+  await expect(hexInput).toHaveValue('#FF677D');
+  await expect(picker).toHaveValue('#ff677d');
+  await expect(swatch).toHaveAttribute('aria-pressed', 'true');
+  await picker.fill('#243042');
+  await expect(hexInput).toHaveValue('#243042');
+  await expect(ink).toHaveAttribute('stroke', '#243042');
+  await expect(page.locator('.swatch[aria-pressed="true"]')).toHaveCount(0);
+  await hexInput.fill('FF677D');
+  await expect(swatch).toHaveAttribute('aria-pressed', 'true');
+});
+
 test('mobile has no horizontal overflow and transparent export preserves the background choice', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -87,7 +161,7 @@ for (const width of [1440, 900, 375, 320]) {
     const preview = page.locator('.preview-panel');
 
     await expect(editor.locator('details, summary')).toHaveCount(0);
-    for (const id of ['lineHeight', 'alignment', 'background', 'loop']) {
+    for (const id of ['lineHeight', 'alignment', 'background', 'loop', 'color-value']) {
       await expect(editor.locator(`#${id}`)).toBeVisible();
     }
     const editorBox = (await editor.boundingBox())!;

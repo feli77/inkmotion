@@ -53,7 +53,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
           <section class="settings-group appearance-group" aria-labelledby="appearance-title">
             <h3 id="appearance-title" class="group-title">${icons.palette}${t('settings.appearance')}</h3>
             <div class="group-fields">
-              <div class="color-field"><div class="label-row"><label for="color">${t('settings.color')}</label><output id="color-value" for="color"></output></div><div class="colors">
+              <div class="color-field"><div class="label-row"><label for="color-value">${t('settings.color')}</label><input id="color-value" type="text" aria-label="${t('settings.hexColor')}" title="${t('settings.hexColorHint')}" spellcheck="false" autocomplete="off" autocapitalize="off" /></div><div class="colors">
                 ${['#a8e6cf', '#dcedc1', '#ffd3b6', '#ffaaa5', '#ff677d'].map(color => `<button type="button" class="swatch" data-color="${color}" style="--swatch:${color}" aria-label="${t('settings.color')} ${color}" aria-pressed="false"></button>`).join('')}
                 <div class="custom-color"><input id="color" type="color" aria-label="${t('settings.customColor')}" /><span aria-hidden="true">+</span></div>
               </div></div>
@@ -81,6 +81,8 @@ const empty = $('empty');
 const warning = $('warning');
 const replayButton = $<HTMLButtonElement>('replay');
 const exportButton = $<HTMLButtonElement>('export');
+const colorInput = $<HTMLInputElement>('color');
+const colorValueInput = $<HTMLInputElement>('color-value');
 const defaults: RenderSettings = {
   fontId: 'satisfy', fontSize: 56, strokeWidth: 1.8, speed: 1, color: '#171717',
   lineHeight: 1.65, alignment: 'left', background: '#ffffff', loop: false, width: 720, padding: 32,
@@ -97,7 +99,7 @@ try {
     for (const [key, min, max] of [['fontSize', 28, 96], ['speed', 0.25, 3], ['strokeWidth', 0.8, 4], ['lineHeight', 1.3, 2.4]] as const) {
       if (typeof saved[key] === 'number' && Number.isFinite(saved[key])) settings[key] = Math.min(max, Math.max(min, saved[key]));
     }
-    if (/^#[0-9a-f]{6}$/i.test(saved.color)) settings.color = saved.color;
+    if (/^#[0-9a-f]{6}$/i.test(saved.color)) settings.color = saved.color.toLowerCase();
     if (['left', 'center', 'right'].includes(saved.alignment)) settings.alignment = saved.alignment;
     if (['#ffffff', 'transparent'].includes(saved.background)) settings.background = saved.background;
     if (typeof saved.loop === 'boolean') settings.loop = saved.loop;
@@ -118,7 +120,8 @@ function updateLabels(): void {
   $('fontSize-value').textContent = `${settings.fontSize} px`;
   $('strokeWidth-value').textContent = `${settings.strokeWidth.toFixed(1)} px`;
   $('lineHeight-value').textContent = `${settings.lineHeight.toFixed(2).replace(/0$/, '')}×`;
-  $('color-value').textContent = settings.color.toUpperCase();
+  colorInput.value = settings.color;
+  if (document.activeElement !== colorValueInput) colorValueInput.value = settings.color.toUpperCase();
   document.querySelectorAll<HTMLButtonElement>('.swatch').forEach(button => {
     button.setAttribute('aria-pressed', String(button.dataset.color === settings.color));
   });
@@ -208,13 +211,31 @@ for (const key of ['speed', 'fontSize', 'strokeWidth', 'lineHeight'] as const) {
     scheduleRender();
   });
 }
-$<HTMLInputElement>('color').addEventListener('input', event => {
+colorInput.addEventListener('input', event => {
   settings.color = (event.target as HTMLInputElement).value;
   scheduleRender();
 });
+function updateHexColor(commit = false): void {
+  const hex = colorValueInput.value.trim().replace(/^#/, '');
+  if (/^[0-9a-f]{6}$/i.test(hex) || (commit && /^[0-9a-f]{3}$/i.test(hex))) {
+    const color = `#${hex.length === 3 ? hex.replace(/./g, '$&$&') : hex}`.toLowerCase();
+    if (color !== settings.color) {
+      settings.color = color;
+      scheduleRender();
+    }
+  }
+  if (commit) colorValueInput.value = settings.color.toUpperCase();
+}
+colorValueInput.addEventListener('input', () => updateHexColor());
+colorValueInput.addEventListener('blur', () => updateHexColor(true));
+colorValueInput.addEventListener('keydown', event => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    updateHexColor(true);
+  } else if (event.key === 'Escape') colorValueInput.value = settings.color.toUpperCase();
+});
 document.querySelectorAll<HTMLButtonElement>('.swatch').forEach(button => button.addEventListener('click', () => {
   settings.color = button.dataset.color!;
-  $<HTMLInputElement>('color').value = settings.color;
   scheduleRender(0);
 }));
 for (const key of ['alignment', 'background'] as const) {

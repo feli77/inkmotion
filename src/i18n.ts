@@ -15,6 +15,8 @@ const zhCN = {
   'settings.stroke': '笔画粗细',
   'settings.color': '笔画颜色',
   'settings.customColor': '自定义笔画颜色',
+  'settings.hexColor': '十六进制笔画颜色',
+  'settings.hexColorHint': '输入 3 位或 6 位十六进制颜色，如 #ABC 或 #171717',
   'settings.lineHeight': '行距',
   'settings.alignment': '对齐',
   'settings.left': '左对齐',
