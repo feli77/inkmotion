@@ -18,10 +18,9 @@ const icons = {
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <header class="header">
     <a class="brand" href="./" aria-label="InkMotion">${icons.pen}<span>InkMotion<span class="brand-dot">.</span></span></a>
-    <span class="header-note">${t('app.title')}</span>
   </header>
   <main>
-    <div class="intro"><h1>${t('app.description')}</h1><span class="local-note"><i></i>${t('app.local')}</span></div>
+    <div class="intro"><h1>${t('app.description')}</h1></div>
     <div class="workspace">
       <section class="editor" aria-label="${t('app.title')}">
         <div class="label-row"><label for="text">${t('text.label')}</label><span id="count" class="muted"></span></div>
@@ -51,7 +50,6 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       </section>
     </div>
   </main>
-  <footer><span>${t('footer.credit')} <a href="https://github.com/akzhy/Vara/tree/master/fonts/Satisfy" target="_blank" rel="noreferrer">Satisfy / Vara</a></span></footer>
 `;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
