@@ -95,7 +95,7 @@ test('translates accessible labels, warnings, empty states and export results im
   await expect(page.locator('.swatch').first()).toHaveAccessibleName('笔画颜色 #a8e6cf');
   await expect(page.locator('#text')).toHaveAttribute('placeholder', '写下一句话…');
   await expect(page).toHaveTitle('InkMotion · 手写动画');
-  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /将英文文本/);
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /将中英文文本/);
 
   await page.locator('#text').fill('');
   await expect(page.locator('#empty-message')).toHaveText('写点什么，开始你的手写动画');

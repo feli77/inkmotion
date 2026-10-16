@@ -1,5 +1,5 @@
 import './style.css';
-import { createScene, loadFont, Player, renderScene } from './engine';
+import { createScene, loadFont, loadFontGlyphs, Player, renderScene } from './engine';
 import { downloadExport, getVideoMimeType } from './export';
 import type { ExportMode } from './export';
 import { fonts } from './fonts';
@@ -299,6 +299,9 @@ let player: Player | undefined;
 let renderTimer = 0;
 let exporting = false;
 let fontRequest = 0;
+let renderRequest = 0;
+let glyphsPending = false;
+let composing = false;
 let statusMessage: MessageKey | undefined = 'preview.loading';
 let emptyMessage: MessageKey = 'preview.loading';
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -310,7 +313,7 @@ function showWarning(message = ''): void {
 
 function updateExportButtons(pending = false): void {
   for (const button of exportButtons) {
-    button.disabled = pending || exporting || !font || !scene?.strokes.length || Boolean(scene?.unsupported.length) || (button.dataset.format === 'video' && !videoSupported);
+    button.disabled = pending || glyphsPending || composing || exporting || !font || !scene?.strokes.length || Boolean(scene?.unsupported.length) || (button.dataset.format === 'video' && !videoSupported);
   }
 }
 
@@ -397,14 +400,41 @@ document.querySelector('.language-switcher')!.addEventListener('focusout', event
   if (!next || !document.querySelector('.language-switcher')!.contains(next)) toggleLanguageMenu(false);
 });
 
-function render(): void {
+async function render(): Promise<void> {
   renderTimer = 0;
-  if (!font) return;
+  if (!font || composing) return;
+  const request = ++renderRequest;
+  const selectedFont = font;
+  const input = textInput.value;
+  let loaded = font;
+  if (font.glyphs) {
+    glyphsPending = true;
+    statusMessage = 'preview.loading';
+    refreshMessages();
+    updateExportButtons(true);
+    replayButton.disabled = true;
+    try {
+      loaded = await loadFontGlyphs(font, input);
+    } catch {
+      if (request !== renderRequest) return;
+      statusMessage = 'preview.failed';
+      emptyMessage = 'preview.failed';
+      empty.hidden = false;
+      refreshMessages();
+      $<HTMLButtonElement>('retry').hidden = false;
+      // Keep the previous drawing visible, with exports disabled until retry.
+      updateExportButtons(true);
+      return;
+    }
+    if (request !== renderRequest || selectedFont !== font) return;
+  }
+  glyphsPending = false;
+  $<HTMLButtonElement>('retry').hidden = true;
   player?.destroy();
   player = undefined;
   settings.width = Math.max(240, Math.floor(paper.clientWidth));
   settings.padding = settings.width < 420 ? 24 : 32;
-  scene = createScene(font, textInput.value, { ...settings });
+  scene = createScene(loaded, input, { ...settings });
   const canPlay = scene.strokes.length > 0;
   drawing.replaceChildren();
   if (canPlay) {
@@ -425,17 +455,21 @@ function render(): void {
 }
 
 function scheduleRender(delay = 120): void {
+  ++renderRequest;
   clearTimeout(renderTimer);
+  renderTimer = 0;
   updateLabels();
   // Wait for the updated preview before exporting or replaying.
   updateExportButtons(true);
   replayButton.disabled = true;
   persist();
-  renderTimer = window.setTimeout(render, delay);
+  if (!composing) renderTimer = window.setTimeout(() => void render(), delay);
 }
 
 async function selectFont(): Promise<void> {
   const request = ++fontRequest;
+  ++renderRequest;
+  glyphsPending = false;
   font = undefined;
   updateExportButtons(true);
   replayButton.disabled = true;
@@ -447,7 +481,7 @@ async function selectFont(): Promise<void> {
     const loaded = await loadFont(selected.url);
     if (request !== fontRequest) return;
     font = loaded;
-    render();
+    void render();
   } catch {
     if (request !== fontRequest) return;
     statusMessage = emptyMessage = 'preview.failed';
@@ -457,7 +491,18 @@ async function selectFont(): Promise<void> {
   }
 }
 
-textInput.addEventListener('input', () => scheduleRender(250));
+textInput.addEventListener('compositionstart', () => {
+  composing = true;
+  scheduleRender();
+});
+textInput.addEventListener('compositionend', () => {
+  composing = false;
+  scheduleRender(0);
+});
+textInput.addEventListener('input', event => {
+  if (event.isComposing) return;
+  scheduleRender(250);
+});
 for (const key of numericKeys) {
   $<HTMLInputElement>(key).addEventListener('input', event => {
     settings[key] = Number((event.target as HTMLInputElement).value);

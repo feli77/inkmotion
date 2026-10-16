@@ -6,6 +6,7 @@ export interface FontDefinition {
   nameKey: MessageKey;
   url: string;
   source: { name: string; url: string };
+  fallbackSource?: { font: string; name: string; url: string };
 }
 
 const varaSource = { name: 'Vara.js', url: 'https://github.com/akzhy/Vara' };
@@ -29,4 +30,9 @@ export const fonts: readonly FontDefinition[] = [
   { id: 'ems-tech', name: 'EMS Tech', nameKey: 'font.emsTech', url: '/fonts/ems-tech.json', source: emsSource },
   { id: 'ems-nixish', name: 'EMS Nixish', nameKey: 'font.emsNixish', url: '/fonts/ems-nixish.json', source: emsSource },
   { id: 'relief-singleline', name: 'Relief SingleLine', nameKey: 'font.reliefSingleLine', url: '/fonts/relief-singleline.json', source: reliefSource },
+  {
+    id: 'chinese-kaiti', name: 'InkMotion Kaiti', nameKey: 'font.chineseKaiti', url: '/fonts/chinese-kaiti.json',
+    source: { name: 'Make Me a Hanzi', url: 'https://github.com/skishore/makemeahanzi/tree/bddc96d41bef78427ed0e034e9f7e31d71fd1b92' },
+    fallbackSource: { font: 'Relief SingleLine', ...reliefSource },
+  },
 ];

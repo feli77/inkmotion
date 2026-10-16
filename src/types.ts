@@ -3,6 +3,12 @@ export type BrushPoint = [x: number, y: number, width: number];
 /** An elliptic terminal attached to a trajectory point; angle is in radians. */
 export type BrushNib = [pointIndex: number, dx: number, dy: number, major: number, minor: number, angle: number];
 
+/** A filled stroke revealed along its centerline, in source font units. */
+export interface StrokeOutline {
+  d: string;
+  width: number;
+}
+
 /** Vara-compatible stroke format with optional sampled pen widths. */
 export interface FontPath {
   d: string;
@@ -10,6 +16,7 @@ export interface FontPath {
   my: number;
   points?: BrushPoint[];
   nibs?: BrushNib[];
+  outline?: StrokeOutline;
 }
 
 export interface FontGlyph {
@@ -19,6 +26,8 @@ export interface FontGlyph {
 
 export interface FontData {
   c: Record<string, FontGlyph>;
+  /** Local, per-codepoint glyph files; the manifest prevents missing requests. */
+  glyphs?: { directory: string; characters: string };
   p: {
     tf: number;
     lh: number;
@@ -27,6 +36,9 @@ export interface FontData {
     bsw: number;
     /** Retain original advances and side bearings for connected script fonts. */
     preserveBearings?: boolean;
+    /** Fixed em metrics for fonts whose glyphs are measured on demand. */
+    ascent?: number;
+    descent?: number;
     slc?: string;
     slj?: string;
     s?: number;
@@ -59,6 +71,7 @@ export interface Stroke {
   start: number;
   end: number;
   brush?: BrushGeometry;
+  outline?: StrokeOutline;
 }
 
 export interface BrushSegment {

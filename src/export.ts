@@ -29,6 +29,7 @@ export interface ExportAdapter {
 }
 
 const FALLBACK_INK = '#262832';
+const OUTLINE_REFERENCE_WIDTH = 1.8;
 const HEX_COLOR = /^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i;
 
 function xml(value: string): string {
@@ -112,7 +113,26 @@ function brushSvg(stroke: Stroke, scene: Scene, mode: ExportMode, cycle: number,
   return `  <g transform="${xml(stroke.transform)}" fill="${color(scene.settings.color, FALLBACK_INK)}" stroke="none">\n${paths.join('')}  </g>\n`;
 }
 
-function pathSvg(stroke: Stroke, scene: Scene, mode: ExportMode, cycle: number, time?: number): string {
+function outlineSvg(stroke: Stroke, scene: Scene, mode: ExportMode, cycle: number, index: number, time?: number): string {
+  const outline = stroke.outline!;
+  const id = `inkmotion-reveal-${index}`;
+  const filter = Math.abs(scene.settings.strokeWidth - OUTLINE_REFERENCE_WIDTH) > 0.0001 ? ' filter="url(#inkmotion-outline-width)"' : '';
+  const attributes = `d="${xml(outline.d)}" fill="${color(scene.settings.color, FALLBACK_INK)}" stroke="none"`;
+  const complete = (mode === 'static' && time === undefined) || (time !== undefined && time >= stroke.end);
+  let content = `    <path ${attributes}${complete ? '' : ` mask="url(#${id})"`}/>\n`;
+  if (!complete) {
+    const reveal = pathSvg({ ...stroke, transform: '', outline: undefined }, {
+      ...scene, settings: { ...scene.settings, strokeWidth: outline.width * scene.scale },
+    }, mode, cycle, index, time);
+    content = `    <defs><mask id="${id}" x="-100%" y="-100%" width="300%" height="300%" style="mask-type:alpha">\n`
+      + `      <g fill="none" stroke="#ffffff" stroke-width="${number(outline.width)}" stroke-linecap="round" stroke-linejoin="round">\n${reveal}      </g>\n`
+      + `    </mask></defs>\n${content}`;
+  }
+  return `  <g transform="${xml(stroke.transform)}"${filter}>\n${content}  </g>\n`;
+}
+
+function pathSvg(stroke: Stroke, scene: Scene, mode: ExportMode, cycle: number, index: number, time?: number): string {
+  if (stroke.outline) return outlineSvg(stroke, scene, mode, cycle, index, time);
   if (stroke.brush) return brushSvg(stroke, scene, mode, cycle, time);
   const attributes = `d="${xml(stroke.d)}" transform="${xml(stroke.transform)}"`;
   if (mode === 'static' && time === undefined) return `    <path ${attributes}/>\n`;
@@ -147,6 +167,11 @@ export function exportSvg(scene: Scene, mode: ExportMode = 'animated', time?: nu
   const cycle = duration + LOOP_HOLD_SECONDS;
   const title = scene.text.trim() ? scene.text : t('app.title');
   const font = fonts.find(item => item.id === scene.settings.fontId) ?? fonts[0];
+  const fallback = font.fallbackSource ? ` Latin fallback: ${font.fallbackSource.font} from ${font.fallbackSource.name}, ${font.fallbackSource.url}. Chinese data: Arphic Public License, /fonts/LICENSE-Chinese-Kaiti.txt. InkMotion conversion, 2026-10-16: inverted Y and added centerline reveals.` : '';
+  const difference = scene.settings.strokeWidth - OUTLINE_REFERENCE_WIDTH;
+  const outlineFilter = scene.strokes.some(stroke => stroke.outline) && Math.abs(difference) > 0.0001
+    ? `  <defs><filter id="inkmotion-outline-width" x="-100%" y="-100%" width="300%" height="300%" color-interpolation-filters="sRGB"><feMorphology operator="${difference > 0 ? 'dilate' : 'erode'}" radius="${number(Math.abs(difference) / (2 * positive(scene.scale)))}"/></filter></defs>\n`
+    : '';
   const background = scene.settings.background === 'transparent'
     ? ''
     : `  <rect width="${width}" height="${height}" fill="${color(scene.settings.background, '#ffffff')}"/>\n`;
@@ -155,10 +180,11 @@ export function exportSvg(scene: Scene, mode: ExportMode = 'animated', time?: nu
     + `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="inkmotion-title inkmotion-desc">\n`
     + `  <title id="inkmotion-title">${xml(title)}</title>\n`
     + `  <desc id="inkmotion-desc">${xml(t(mode === 'animated' ? 'export.animatedDescription' : 'export.staticDescription', { font: font.name, source: font.source.name }))}</desc>\n`
-    + `  <metadata>Created with InkMotion. Font paths: ${xml(font.name)} from ${xml(font.source.name)}, ${xml(font.source.url)}.</metadata>\n`
+    + `  <metadata>Created with InkMotion. Font paths: ${xml(font.name)} from ${xml(font.source.name)}, ${xml(font.source.url)}.${xml(fallback)}</metadata>\n`
+    + outlineFilter
     + background
     + `  <g fill="none" stroke="${ink}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round">\n`
-    + scene.strokes.map((stroke) => pathSvg(stroke, scene, mode, cycle, time)).join('')
+    + scene.strokes.map((stroke, index) => pathSvg(stroke, scene, mode, cycle, index, time)).join('')
     + '  </g>\n</svg>\n';
 }
 

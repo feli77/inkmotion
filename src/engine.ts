@@ -6,6 +6,7 @@ export type { FontData, RenderSettings, Scene, Stroke } from './types';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const fontRequests = new Map<string, Promise<FontData>>();
+const glyphRequests = new Map<string, Promise<FontGlyph>>();
 const metricCache = new WeakMap<FontData, FontMetrics>();
 
 interface MeasuredPath extends FontPath {
@@ -59,14 +60,52 @@ export function loadFont(url: string): Promise<FontData> {
   return request;
 }
 
+/** Load only requested, known characters; keep each render's font snapshot isolated. */
+export async function loadFontGlyphs(font: FontData, input: string): Promise<FontData> {
+  if (!font.glyphs) return font;
+  const available = new Set([...font.glyphs.characters]);
+  const characters = [...new Set([...normalizeText(input, true)])].filter(character =>
+    available.has(character) && !font.c[String(character.codePointAt(0))],
+  );
+  if (!characters.length) return font;
+  const c = { ...font.c };
+  // Bound concurrent requests for pasted paragraphs and mobile connections.
+  for (let offset = 0; offset < characters.length; offset += 12) {
+    await Promise.all(characters.slice(offset, offset + 12).map(async character => {
+      const code = String(character.codePointAt(0));
+      const url = `${font.glyphs!.directory}/${code}.json`;
+      let request = glyphRequests.get(url);
+      if (!request) {
+        request = fetch(url).then(async response => {
+          if (!response.ok) throw new Error(`Glyph request failed (${response.status})`);
+          const glyph: FontGlyph = await response.json();
+          if (!isFontData({ c: { [code]: glyph }, p: font.p })) throw new Error('Invalid stroke glyph');
+          return glyph;
+        }).catch((error: unknown) => {
+          glyphRequests.delete(url);
+          throw error;
+        });
+        glyphRequests.set(url, request);
+      }
+      c[code] = await request;
+    }));
+  }
+  return { ...font, c };
+}
+
 function isFontData(value: unknown): value is FontData {
   if (!value || typeof value !== 'object') return false;
   const font = value as Partial<FontData>;
   if (!font.c || !font.p || !(font.p.tf > 0) || !Number.isFinite(font.p.tf) || !(font.p.space > 0) || !Number.isFinite(font.p.space)) return false;
   if (font.p.preserveBearings !== undefined && typeof font.p.preserveBearings !== 'boolean') return false;
+  if ([font.p.ascent, font.p.descent].some(value => value !== undefined && (!Number.isFinite(value) || value < 0))) return false;
+  if (font.glyphs && (typeof font.glyphs.directory !== 'string' || !/^\/fonts\/[a-z0-9-]+$/.test(font.glyphs.directory)
+    || typeof font.glyphs.characters !== 'string')) return false;
   return Object.values(font.c).every((glyph: FontGlyph) =>
     Number.isFinite(glyph.w) && Array.isArray(glyph.paths) && glyph.paths.every((path) =>
       typeof path.d === 'string' && Number.isFinite(path.mx) && Number.isFinite(path.my)
+        && (path.outline === undefined || (typeof path.outline.d === 'string'
+          && path.outline.width > 0 && Number.isFinite(path.outline.width) && path.points === undefined))
         && (path.points === undefined || (font.p!.bsw > 0 && Number.isFinite(font.p!.bsw)
           && Array.isArray(path.points) && path.points.length > 0
           && path.points.every(point => Array.isArray(point) && point.length === 3 && point.every(Number.isFinite) && point[2] >= 0)))
@@ -78,15 +117,44 @@ function isFontData(value: unknown): value is FontData {
 }
 
 /** Common typographic English punctuation maps to the font's ASCII glyphs. */
-export function normalizeText(text: string): string {
-  return text
+export function normalizeText(text: string, chinese = false): string {
+  const normalized = text
     .replace(/\r\n?/g, '\n')
     .replace(/\t/g, '    ')
+    .replace(/[\u00a0\u202f]/g, ' ');
+  if (chinese) return normalized;
+  return normalized
     .replace(/[\u2018\u2019\u201a\u201b]/g, "'")
     .replace(/[\u201c\u201d\u201e\u201f]/g, '"')
     .replace(/[\u2010-\u2015\u2212]/g, '-')
-    .replace(/\u2026/g, '...')
-    .replace(/[\u00a0\u202f]/g, ' ');
+    .replace(/\u2026/g, '...');
+}
+
+const chineseNoStart = '，。！？、；：）】》〉」』〕］｝”’…,.!?;:)]}';
+const chineseNoEnd = '（【《〈「『〔［｛“‘([{';
+
+function chineseClusters(text: string): string[] {
+  const clusters: string[] = [];
+  for (const character of text) {
+    const previous = clusters.at(-1);
+    if (previous && (chineseNoStart.includes(character) || chineseNoEnd.includes(previous.at(-1)!))) clusters[clusters.length - 1] += character;
+    else clusters.push(character);
+  }
+  return clusters;
+}
+
+function chineseTokens(paragraph: string): string[] {
+  const tokens = paragraph.match(/[ \u3000]+|[\p{Script=Han}\u3000-\u303f\uff00-\uffef\u2014\u2018-\u201f\u2026]|[^ \u3000\p{Script=Han}\u3000-\u303f\uff00-\uffef\u2014\u2018-\u201f\u2026]+/gu) ?? [];
+  const grouped: string[] = [];
+  for (const token of tokens) {
+    const previous = grouped.at(-1);
+    // Keep closing punctuation with its preceding character, and opening
+    // punctuation with its following character, before deciding line breaks.
+    if (previous && !/[ \u3000]$/.test(previous) && (chineseNoStart.includes(token[0])
+      || chineseNoEnd.includes(previous.at(-1)!))) grouped[grouped.length - 1] += token;
+    else grouped.push(token);
+  }
+  return grouped;
 }
 
 function finiteClamp(value: number, minimum: number, maximum: number, fallback: number): number {
@@ -116,8 +184,8 @@ function measureFont(font: FontData, widthScale: number): FontMetrics {
   svg.style.cssText = 'position:fixed;left:-10000px;top:-10000px;width:1px;height:1px;visibility:hidden;pointer-events:none';
   document.body.append(svg);
   const glyphs = new Map<string, GlyphMetrics>();
-  let top = 0;
-  let bottom = 0;
+  let top = -(font.p.ascent ?? 0);
+  let bottom = font.p.descent ?? 0;
   let overhang = 0;
   try {
     for (const [code, source] of Object.entries(font.c)) {
@@ -135,9 +203,10 @@ function measureFont(font: FontData, widthScale: number): FontMetrics {
           return { ...sourcePath, length: brush.length, brush };
         }
         const path = document.createElementNS(SVG_NS, 'path');
-        path.setAttribute('d', sourcePath.d);
+        path.setAttribute('d', sourcePath.outline?.d ?? sourcePath.d);
         svg.append(path);
         const box = path.getBBox();
+        if (sourcePath.outline) path.setAttribute('d', sourcePath.d);
         const length = path.getTotalLength();
         path.remove();
         // getBBox excludes a path's own transform; apply Vara's mx / -my here.
@@ -171,15 +240,26 @@ function measureFont(font: FontData, widthScale: number): FontMetrics {
 export function createScene(font: FontData, input: string, initialSettings: RenderSettings): Scene {
   const settings = sanitizeSettings(initialSettings);
   const scale = settings.fontSize / font.p.tf;
-  const variableWidth = Object.values(font.c).some(glyph => glyph.paths.some(path => path.points));
-  const metrics = measureFont(font, variableWidth ? settings.strokeWidth / (scale * font.p.bsw) : 0);
-  const normalized = normalizeText(input);
+  const chinese = Boolean(font.glyphs);
+  const normalized = normalizeText(input, chinese);
+  // Chinese metrics depend on this input, so unused Latin accents and bearings
+  // neither slow measurement nor consume the Chinese line's available width.
+  const measuredFont = chinese ? {
+    ...font,
+    c: Object.fromEntries([...new Set([...normalized, '?'])].flatMap(character => {
+      const code = String(character.codePointAt(0));
+      return font.c[code] ? [[code, font.c[code]]] : [];
+    })),
+  } : font;
+  const variableWidth = Object.values(measuredFont.c).some(glyph => glyph.paths.some(path => path.points));
+  const metrics = measureFont(measuredFont, variableWidth ? settings.strokeWidth / (scale * font.p.bsw) : 0);
+  const isSpace = (character: string): boolean => character === ' ' || (chinese && character === '\u3000');
   const unsupported = [...new Set([...normalized].filter((character) =>
-    character !== ' ' && character !== '\n' && !metrics.glyphs.has(character),
+    !isSpace(character) && character !== '\n' && !metrics.glyphs.has(character),
   ))];
   // Unsupported text stays visible as '?' and is separately reported to the UI.
   const text = [...normalized].map((character) =>
-    character === ' ' || character === '\n' || metrics.glyphs.has(character) ? character : '?',
+    isSpace(character) || character === '\n' || metrics.glyphs.has(character) ? character : '?',
   ).join('');
   const preserveBearings = font.p.preserveBearings === true;
   const margin = settings.strokeWidth / 2 + 1 + (preserveBearings ? metrics.overhang * scale : 0);
@@ -188,13 +268,16 @@ export function createScene(font: FontData, input: string, initialSettings: Rend
   const getGlyph = (character: string): GlyphMetrics | undefined => metrics.glyphs.get(character);
   const characterWidth = (character: string): number => {
     if (character === ' ') return font.p.space * scale;
+    if (chinese && character === '\u3000') return settings.fontSize;
     const glyph = getGlyph(character);
     return glyph ? (preserveBearings ? glyph.width * scale : Math.max(glyph.width * scale, minAdvance) + gap) : font.p.space * scale;
   };
   const largestCharacter = Math.max(0, ...[...new Set([...text])].map(characterWidth));
+  const largestCluster = chinese ? text.split('\n').flatMap(chineseClusters).reduce((largest, cluster) =>
+    Math.max(largest, [...cluster].reduce((sum, character) => sum + characterWidth(character), 0)), 0) : 0;
   // If a single character exceeds a narrow canvas, expand the viewBox; the UI's
   // responsive SVG scales it down rather than clipping or silently losing text.
-  const width = Math.max(settings.width, largestCharacter + settings.padding * 2 + margin * 2);
+  const width = Math.max(settings.width, Math.max(largestCharacter, largestCluster) + settings.padding * 2 + margin * 2);
   const availableWidth = width - settings.padding * 2 - margin * 2;
   const lines: Line[] = [];
   let line: Line = { characters: [], width: 0 };
@@ -214,20 +297,26 @@ export function createScene(font: FontData, input: string, initialSettings: Rend
   const paragraphs = text.split('\n');
   for (const paragraph of paragraphs) {
     let pendingSpaces = '';
-    for (const token of paragraph.match(/ +|[^ ]+/g) ?? []) {
-      if (token[0] === ' ') {
+    for (const token of chinese ? chineseTokens(paragraph) : paragraph.match(/ +|[^ ]+/g) ?? []) {
+      if (isSpace(token[0])) {
         pendingSpaces += token;
         continue;
       }
       const wordWidth = [...token].reduce((sum, character) => sum + characterWidth(character), 0);
-      const spaceWidth = pendingSpaces.length * characterWidth(' ');
+      const spaceWidth = [...pendingSpaces].reduce((sum, character) => sum + characterWidth(character), 0);
       if (line.characters.length && line.width + spaceWidth + wordWidth > availableWidth) {
         finishLine();
         pendingSpaces = ''; // An automatic break replaces the word separator.
       }
       appendSpaces(pendingSpaces);
       pendingSpaces = '';
-      for (const character of token) appendCharacter(character);
+      if (chinese) {
+        for (const cluster of chineseClusters(token)) {
+          const clusterWidth = [...cluster].reduce((sum, character) => sum + characterWidth(character), 0);
+          if (line.width > 0 && line.width + clusterWidth > availableWidth + 0.001) finishLine();
+          for (const character of cluster) appendCharacter(character);
+        }
+      } else for (const character of token) appendCharacter(character);
     }
     // Keep intentional indentation and trailing whitespace without creating
     // extra empty lines solely for spaces that overflow the canvas.
@@ -266,10 +355,11 @@ export function createScene(font: FontData, input: string, initialSettings: Rend
           start: time,
           end: time + duration,
           ...(path.brush ? { brush: path.brush } : {}),
+          ...(path.outline ? { outline: path.outline } : {}),
         });
         time += duration + 0.018 / settings.speed;
       }
-      time += (/[.,!?:;]/.test(character) ? 0.15 : 0.035) / settings.speed;
+      time += (/[.,!?:;，。！？、；：]/.test(character) ? 0.15 : 0.035) / settings.speed;
     }
     if (lineIndex < lines.length - 1) time += 0.16 / settings.speed;
   }

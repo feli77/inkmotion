@@ -1,10 +1,11 @@
 # InkMotion
 
-一个轻量的手写动画网页工具。以 SVG 路径逐笔绘制，支持 Vara 笔画 JSON、转换后的单线 SVG 字体和带逐点宽度的笔画字体；使用原生 TypeScript，所有文本处理与导出在浏览器完成。
+一个轻量的中英文手写动画网页工具。以 SVG 路径逐笔绘制，支持 Vara 笔画 JSON、单线 SVG 字体、逐点变宽笔画和中文楷体轮廓；使用原生 TypeScript，所有文本处理与导出在浏览器完成。
 
 ## 功能
 
-- 11 种字体样式：Satisfy、Pacifico、Parisienne、Shadows Into Light、EMS Tech、EMS Nixish、Relief SingleLine，以及保留自然粗细的 Caveat、Tangerine、Italianno、Ink Flourish。7 款单线字体支持全部可打印 ASCII 字符。
+- 12 种字体样式：Satisfy、Pacifico、Parisienne、Shadows Into Light、EMS Tech、EMS Nixish、Relief SingleLine，保留自然粗细的 Caveat、Tangerine、Italianno、Ink Flourish，以及 InkMotion Kaiti 中文楷体。7 款单线字体支持全部可打印 ASCII 字符。
+- 中文楷体包含 9,574 个汉字与部件，支持常用简繁中文、中英混排、全角标点和全角空格；只下载输入中用到的汉字，重复字符共用下载与缓存。
 - 4 款变宽字体使用 Tegaki 提取的逐点宽度与椭圆形笔端，沿书写轨迹保留原字体的粗细变化；「笔画粗细」等比例调整这些宽度。Caveat、Tangerine、Ink Flourish 各包含 90 个字符，Italianno 包含 89 个字符；均支持英文字母、数字及大部分 ASCII 标点，暂不包含 `[]{}` 和带重音的拉丁字母，Italianno 另缺少下划线 `_`。Tangerine、Italianno、Ink Flourish 保留原字体的字距与左右留白，让字母自然衔接；Ink Flourish 源自 Parisienne，与原有单线 Parisienne 分别提供。
 - EMS 字体还包含带重音的拉丁字母；Relief SingleLine 支持更广的拉丁字符集。是否可导出按当前字体的实际字符覆盖判断。
 - 多行文本、自动换行、长词断行；兼容弯引号、长破折号、省略号与不换行空格。
@@ -15,6 +16,23 @@
 - 支持简体中文、繁体中文、英语、西班牙语、法语、德语、葡萄牙语、俄语、日语和韩语；右上角语言图标可切换，自动识别浏览器语言并记住手动选择。
 
 当前字体不支持的字符会显示提示并禁用导出，可更换字体或移除这些字符。减少动态效果偏好开启时，预览默认展示完整文字，仍可手动播放。
+
+## 中文楷体 MVP
+
+在字体菜单选择「InkMotion Kaiti · 中文楷体」，例如输入：
+
+```text
+你好，世界！Hello, InkMotion.
+繁體中文《手寫動畫》
+```
+
+中文保留原始楷体轮廓和逐笔顺序，沿中心线揭示笔画，撇捺有自然粗细；「笔画粗细」对轮廓做扩张或收缩。英文、数字及扩展拉丁字符使用 Relief SingleLine 回退，统一到相同的坐标系和基线。动画 SVG、静态 SVG、PNG、GIF 和视频均使用同一份笔画时间线。导出的 SVG 内嵌轮廓、揭示路径与时序，无须再次下载字库。
+
+中文按字换行，并避免常用闭标点出现在自动换行的行首、开标点出现在行尾；英文单词尽量整体换行。输入法合成期间暂停更新，确认选字后再加载字形。加载失败可重试，快速编辑或切换字体时忽略过期响应。
+
+字形数据固定来自 [Make Me a Hanzi](https://github.com/skishore/makemeahanzi/tree/bddc96d41bef78427ed0e034e9f7e31d71fd1b92)，覆盖以数据实际收录为准；生僻字和 Emoji 缺失时保留现有提示并禁用导出。数据使用大陆笔顺，繁体字不代表台湾等地区的笔顺规范。MVP 提供一套楷体，不包含行书连笔、任意 TTF/OTF 转换或地区笔顺切换。
+
+全部中文字形随应用本地分发为 9,574 个静态文件，字体清单包含字符覆盖索引，浏览器不会为未收录字符发送字形请求。仅测量本次输入所需的汉字和轻量的英文/标点回退集，不遍历整套中文字库；无需后端、第三方 CDN 或新的运行时依赖。部署时需保留整个 `public/fonts/chinese-kaiti/` 目录和许可文件。
 
 ## 本地运行
 
@@ -68,7 +86,7 @@ PNG 包含完整书写结果并保留透明度。GIF 按当前书写速度生成
 | 笔画字体 | `src/fonts.ts` | 将兼容 Vara `c/p` 格式的 JSON 放入 `public/fonts/`，注册字体 ID、原名和各语言文案键；保留字体许可。字体按需加载并缓存，选择保存在本地草稿中；SVG 自动标注对应字体来源。 |
 | 导出格式 | `src/export.ts` | 在 `exportFormats` 注册 `ExportAdapter`，返回 `Blob` 或 `Promise<Blob>`；排版和动画核心无需修改。 |
 
-`src/engine.ts` 负责字体测量、排版与确定性笔画时间。`Scene` 是预览和导出共享的数据；变宽字体的几何与边界计算在 `src/brush.ts` 中，沿轨迹分段揭示，交叉处不会提前显示尚未写到的笔段。预览直接复用 SVG 导出实现，`src/raster.ts` 将同一 SVG 笔画与时序光栅化为 PNG / GIF，`src/video.ts` 通过浏览器原生 `MediaRecorder` 将这些帧录制为视频。GIF 编码器及视频模块按需加载。`src/main.ts` 负责输入和播放器控制，`src/style.css` 负责响应式布局。
+`src/engine.ts` 负责字体测量、按字加载、排版与确定性笔画时间。`Scene` 是预览和导出共享的数据；变宽字体的几何与边界计算在 `src/brush.ts` 中，沿轨迹分段揭示，交叉处不会提前显示尚未写到的笔段。中文笔画带有 `outline` 轮廓与中心线揭示宽度，由 `src/export.ts` 统一生成 SVG 遮罩。预览直接复用 SVG 导出实现，`src/raster.ts` 将同一 SVG 笔画与时序光栅化为 PNG / GIF，`src/video.ts` 通过浏览器原生 `MediaRecorder` 将这些帧录制为视频。GIF 编码器及视频模块按需加载。`src/main.ts` 负责输入和播放器控制，`src/style.css` 负责响应式布局。
 
 ## 验证
 
@@ -105,6 +123,16 @@ EMS 笔画由 Sheldon B. Michaels 制作、Windell H. Oskay 转换为 SVG，来�
 Ink Flourish 是 Parisienne 的转换版本，采用新的主名称以遵循原字体的保留名称要求。逐点宽度是从字形轮廓提取的几何宽度，并非原始触控笔压感。转换保留所有宽度和笔端，只增加兼容现有引擎的中心线与各字体的实际度量；许可、来源及修改说明见 `public/fonts/LICENSE-Caveat.txt`、`LICENSE-Tangerine.txt`、`LICENSE-Italianno.txt`、`LICENSE-Ink-Flourish.txt` 和 `LICENSE-Tegaki.txt`。这些资源按需加载并缓存，不引入 Tegaki 运行库或 TTF 运行时解析。
 
 字体数据在本地随应用分发，按需加载，无需第三方字体服务。来源和完整许可保存在 `public/fonts/` 下，SVG 导出标注实际字体及其来源。
+
+中文楷体的原始轮廓来自 Arphic PL KaitiM GB / Arphic PL UKai，经 Make Me a Hanzi 标注笔画和中心线。中文数据遵循 Arphic Public License；原始许可、固定来源及修改说明保存在 `public/fonts/LICENSE-Chinese-Kaiti.txt`，每个转换后的汉字文件均包含修改日期与说明。独立的英文回退继续遵循 Relief SingleLine 的 SIL OFL 1.1，新增单线标点为 InkMotion 绘制，导出元数据列出两套字体来源。
+
+维护中文字库时，取得上述固定提交的 `graphics.txt`，运行：
+
+```sh
+uv run scripts/convert-hanzi-font.py /path/to/makemeahanzi/graphics.txt public/fonts/chinese-kaiti.json
+```
+
+转换保留轮廓曲线与笔顺、翻转 Y 轴、为揭示轨迹补齐端点，并按十进制 Unicode 码点生成文件；清单同时生成字形覆盖索引、统一度量的英文回退和中文标点。FontTools 仅用于离线转换，网页运行不解析 TTF 或整套中文字库。
 
 维护字体时可用开发脚本重新转换 SVG 字体（需要 [uv](https://docs.astral.sh/uv/)，FontTools 版本已在脚本中固定）：
 

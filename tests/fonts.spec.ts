@@ -28,7 +28,7 @@ test('removed EMS draft fonts fall back to Satisfy while keeping text and settin
   expect(requests).toEqual(['/fonts/satisfy.json']);
 });
 
-for (const definition of fonts.slice(1).filter(font => font.source.name !== 'Tegaki')) {
+for (const definition of fonts.slice(1).filter(font => font.source.name !== 'Tegaki' && !font.fallbackSource)) {
   test(`${definition.name} switches preview and SVG exports to its strokes and survives reload`, async ({ page }) => {
     const text = 'Hello, InkMotion!\nWrite 123.';
     const font: FontData = JSON.parse(readFileSync(`public${definition.url}`, 'utf8'));
