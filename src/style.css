@@ -36,7 +36,7 @@ button, select, input[type='range'] { cursor: pointer; }
 button { color: inherit; }
 button, select, textarea { -webkit-tap-highlight-color: transparent; }
 button:disabled, input:disabled { cursor: default; opacity: .4; }
-button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 a { color: inherit; }
 svg { display: block; }
 [hidden] { display: none !important; }
@@ -83,7 +83,8 @@ textarea::placeholder { color: var(--muted); }
 .hint { margin: 10px 0 0; font-size: 11px; color: var(--muted); line-height: 1.6; }
 .warning { margin: 10px 0 0; font-size: 11px; font-weight: 500; color: var(--accent); line-height: 1.7; overflow-wrap: anywhere; }
 .field label, .field-label { display: block; margin-bottom: 10px; font-weight: 500; }
-select { appearance: none; border: 1px solid var(--line); border-radius: 8px; background: var(--surface) var(--select-chevron) no-repeat right 11px center / 12px 12px; padding: 9px 30px 9px 11px; color: var(--accent); font-size: 12px; line-height: 1.4; }
+select { appearance: none; outline: none; border: 1px solid var(--line); border-radius: 8px; background: var(--surface) var(--select-chevron) no-repeat right 11px center / 12px 12px; padding: 9px 30px 9px 11px; color: var(--accent); font-size: 12px; line-height: 1.4; }
+select:focus-visible { border-color: var(--control-border); }
 .field select { width: 100%; min-height: 38px; border-radius: 9px; }
 .alignment-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 3px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
 .alignment-controls button { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 36px; padding: 8px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); transition: background-color .15s, color .15s; }
