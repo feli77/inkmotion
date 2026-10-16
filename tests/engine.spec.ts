@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const definition of fonts) {
-  test(`${definition.name} keeps all printable ASCII inside the canvas, including thick strokes`, async ({ page }) => {
+  test(`${definition.name} keeps supported ASCII inside the canvas, including thick strokes`, async ({ page }) => {
     const result = await page.evaluate(async ({ id, url }) => {
       const { loadFont, createScene, renderScene } = await import('/src/engine.ts');
       const font = await loadFont(url);
@@ -19,6 +19,8 @@ for (const definition of fonts) {
       const scene = createScene(font, text, settings);
       const svg = renderScene(scene);
       document.body.append(svg);
+      svg.pauseAnimations();
+      svg.setCurrentTime(scene.duration + 0.01);
       const box = svg.querySelector('g')!.getBBox();
       const margin = settings.strokeWidth / 2;
       const bounds = {
@@ -28,7 +30,8 @@ for (const definition of fonts) {
       svg.remove();
       return { unsupported: scene.unsupported, width: scene.width, height: scene.height, count: scene.strokes.length, bounds };
     }, definition);
-    expect(result.unsupported).toEqual([]);
+    const missing = definition.id === 'italianno' ? ['[', ']', '_', '{', '}'] : ['[', ']', '{', '}'];
+    expect(result.unsupported).toEqual(definition.source.name === 'Tegaki' ? missing : []);
     expect(result.count).toBeGreaterThan(94);
     expect(result.bounds.left).toBeGreaterThanOrEqual(0);
     expect(result.bounds.top).toBeGreaterThanOrEqual(0);

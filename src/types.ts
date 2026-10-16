@@ -1,8 +1,15 @@
-/** Original Vara stroke-font format. Paths retain their source coordinates. */
+/** A point on a variable-width pen trajectory, in source font units. */
+export type BrushPoint = [x: number, y: number, width: number];
+/** An elliptic terminal attached to a trajectory point; angle is in radians. */
+export type BrushNib = [pointIndex: number, dx: number, dy: number, major: number, minor: number, angle: number];
+
+/** Vara-compatible stroke format with optional sampled pen widths. */
 export interface FontPath {
   d: string;
   mx: number;
   my: number;
+  points?: BrushPoint[];
+  nibs?: BrushNib[];
 }
 
 export interface FontGlyph {
@@ -16,7 +23,10 @@ export interface FontData {
     tf: number;
     lh: number;
     space: number;
+    /** For sampled fonts, the reference width scaled by the canvas px control. */
     bsw: number;
+    /** Retain original advances and side bearings for connected script fonts. */
+    preserveBearings?: boolean;
     slc?: string;
     slj?: string;
     s?: number;
@@ -48,6 +58,31 @@ export interface Stroke {
   /** Seconds from the beginning of the complete scene. */
   start: number;
   end: number;
+  brush?: BrushGeometry;
+}
+
+export interface BrushSegment {
+  from: BrushPoint;
+  to: BrushPoint;
+  /** Fractions of this stroke's drawing duration. */
+  start: number;
+  end: number;
+}
+
+export interface BrushStamp {
+  x: number;
+  y: number;
+  rx: number;
+  ry: number;
+  angle: number;
+  at: number;
+}
+
+export interface BrushGeometry {
+  segments: BrushSegment[];
+  stamps: BrushStamp[];
+  length: number;
+  bounds: { left: number; right: number; top: number; bottom: number };
 }
 
 export interface Scene {

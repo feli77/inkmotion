@@ -1,5 +1,6 @@
 import { exportSvg, LOOP_HOLD_SECONDS } from './export';
-import type { FontData, FontGlyph, RenderSettings, Scene, Stroke } from './types';
+import { createBrush } from './brush';
+import type { BrushGeometry, FontData, FontGlyph, FontPath, RenderSettings, Scene, Stroke } from './types';
 
 export type { FontData, RenderSettings, Scene, Stroke } from './types';
 
@@ -7,11 +8,9 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 const fontRequests = new Map<string, Promise<FontData>>();
 const metricCache = new WeakMap<FontData, FontMetrics>();
 
-interface MeasuredPath {
-  d: string;
-  mx: number;
-  my: number;
+interface MeasuredPath extends FontPath {
   length: number;
+  brush?: BrushGeometry;
 }
 
 interface GlyphMetrics {
@@ -26,6 +25,8 @@ interface FontMetrics {
   glyphs: Map<string, GlyphMetrics>;
   top: number;
   bottom: number;
+  widthScale: number;
+  overhang: number;
 }
 
 interface PositionedCharacter {
@@ -61,10 +62,17 @@ export function loadFont(url: string): Promise<FontData> {
 function isFontData(value: unknown): value is FontData {
   if (!value || typeof value !== 'object') return false;
   const font = value as Partial<FontData>;
-  if (!font.c || !font.p || !(font.p.tf > 0) || !(font.p.space > 0)) return false;
+  if (!font.c || !font.p || !(font.p.tf > 0) || !Number.isFinite(font.p.tf) || !(font.p.space > 0) || !Number.isFinite(font.p.space)) return false;
+  if (font.p.preserveBearings !== undefined && typeof font.p.preserveBearings !== 'boolean') return false;
   return Object.values(font.c).every((glyph: FontGlyph) =>
     Number.isFinite(glyph.w) && Array.isArray(glyph.paths) && glyph.paths.every((path) =>
-      typeof path.d === 'string' && Number.isFinite(path.mx) && Number.isFinite(path.my),
+      typeof path.d === 'string' && Number.isFinite(path.mx) && Number.isFinite(path.my)
+        && (path.points === undefined || (font.p!.bsw > 0 && Number.isFinite(font.p!.bsw)
+          && Array.isArray(path.points) && path.points.length > 0
+          && path.points.every(point => Array.isArray(point) && point.length === 3 && point.every(Number.isFinite) && point[2] >= 0)))
+        && (path.nibs === undefined || (path.points !== undefined && Array.isArray(path.nibs)
+          && path.nibs.every(nib => Array.isArray(nib) && nib.length === 6 && nib.every(Number.isFinite)
+            && Number.isInteger(nib[0]) && nib[0] >= 0 && nib[0] < path.points!.length && nib[3] > 0 && nib[4] > 0))),
     ),
   );
 }
@@ -99,9 +107,9 @@ function sanitizeSettings(settings: RenderSettings): RenderSettings {
   };
 }
 
-function measureFont(font: FontData): FontMetrics {
+function measureFont(font: FontData, widthScale: number): FontMetrics {
   const cached = metricCache.get(font);
-  if (cached) return cached;
+  if (cached?.widthScale === widthScale) return cached;
   // An attached, hidden SVG gives consistent getBBox results across browsers.
   const svg = document.createElementNS(SVG_NS, 'svg');
   svg.setAttribute('aria-hidden', 'true');
@@ -110,6 +118,7 @@ function measureFont(font: FontData): FontMetrics {
   const glyphs = new Map<string, GlyphMetrics>();
   let top = 0;
   let bottom = 0;
+  let overhang = 0;
   try {
     for (const [code, source] of Object.entries(font.c)) {
       let left = Infinity;
@@ -117,6 +126,14 @@ function measureFont(font: FontData): FontMetrics {
       let glyphTop = Infinity;
       let glyphBottom = -Infinity;
       const paths = source.paths.map((sourcePath) => {
+        if (sourcePath.points) {
+          const brush = createBrush(sourcePath.points, sourcePath.nibs ?? [], widthScale);
+          left = Math.min(left, brush.bounds.left + sourcePath.mx);
+          right = Math.max(right, brush.bounds.right + sourcePath.mx);
+          glyphTop = Math.min(glyphTop, brush.bounds.top - sourcePath.my);
+          glyphBottom = Math.max(glyphBottom, brush.bounds.bottom - sourcePath.my);
+          return { ...sourcePath, length: brush.length, brush };
+        }
         const path = document.createElementNS(SVG_NS, 'path');
         path.setAttribute('d', sourcePath.d);
         svg.append(path);
@@ -136,15 +153,16 @@ function measureFont(font: FontData): FontMetrics {
         left,
         top: glyphTop,
         bottom: glyphBottom,
-        width: Math.max(right - left, source.w),
+        width: font.p.preserveBearings ? source.w : Math.max(right - left, source.w),
       });
+      overhang = Math.max(overhang, -left, right - source.w);
       top = Math.min(top, glyphTop);
       bottom = Math.max(bottom, glyphBottom);
     }
   } finally {
     svg.remove();
   }
-  const metrics = { glyphs, top, bottom };
+  const metrics = { glyphs, top, bottom, widthScale, overhang };
   metricCache.set(font, metrics);
   return metrics;
 }
@@ -152,8 +170,9 @@ function measureFont(font: FontData): FontMetrics {
 /** Layout and time allocation are deterministic for a font, text and settings. */
 export function createScene(font: FontData, input: string, initialSettings: RenderSettings): Scene {
   const settings = sanitizeSettings(initialSettings);
-  const metrics = measureFont(font);
   const scale = settings.fontSize / font.p.tf;
+  const variableWidth = Object.values(font.c).some(glyph => glyph.paths.some(path => path.points));
+  const metrics = measureFont(font, variableWidth ? settings.strokeWidth / (scale * font.p.bsw) : 0);
   const normalized = normalizeText(input);
   const unsupported = [...new Set([...normalized].filter((character) =>
     character !== ' ' && character !== '\n' && !metrics.glyphs.has(character),
@@ -162,14 +181,15 @@ export function createScene(font: FontData, input: string, initialSettings: Rend
   const text = [...normalized].map((character) =>
     character === ' ' || character === '\n' || metrics.glyphs.has(character) ? character : '?',
   ).join('');
-  const margin = settings.strokeWidth / 2 + 1;
-  const gap = Math.max(0.5 * scale, settings.strokeWidth * 0.35);
+  const preserveBearings = font.p.preserveBearings === true;
+  const margin = settings.strokeWidth / 2 + 1 + (preserveBearings ? metrics.overhang * scale : 0);
+  const gap = preserveBearings ? 0 : Math.max(0.5 * scale, settings.strokeWidth * 0.35);
   const minAdvance = settings.fontSize * 0.055 + settings.strokeWidth;
   const getGlyph = (character: string): GlyphMetrics | undefined => metrics.glyphs.get(character);
   const characterWidth = (character: string): number => {
     if (character === ' ') return font.p.space * scale;
     const glyph = getGlyph(character);
-    return glyph ? Math.max(glyph.width * scale, minAdvance) + gap : font.p.space * scale;
+    return glyph ? (preserveBearings ? glyph.width * scale : Math.max(glyph.width * scale, minAdvance) + gap) : font.p.space * scale;
   };
   const largestCharacter = Math.max(0, ...[...new Set([...text])].map(characterWidth));
   // If a single character exceeds a narrow canvas, expand the viewBox; the UI's
@@ -234,7 +254,7 @@ export function createScene(font: FontData, input: string, initialSettings: Rend
       }
       const glyphAdvance = characterWidth(character) - gap;
       const extraWidth = (glyphAdvance - glyph.width * scale) / 2;
-      const originX = settings.padding + margin + alignOffset + x + extraWidth - glyph.left * scale;
+      const originX = settings.padding + margin + alignOffset + x + (preserveBearings ? 0 : extraWidth - glyph.left * scale);
       const originY = baseline + lineIndex * lineStep;
       for (const path of glyph.paths) {
         if (path.length <= 0) continue;
@@ -245,6 +265,7 @@ export function createScene(font: FontData, input: string, initialSettings: Rend
           length: path.length,
           start: time,
           end: time + duration,
+          ...(path.brush ? { brush: path.brush } : {}),
         });
         time += duration + 0.018 / settings.speed;
       }

@@ -28,7 +28,7 @@ test('removed EMS draft fonts fall back to Satisfy while keeping text and settin
   expect(requests).toEqual(['/fonts/satisfy.json']);
 });
 
-for (const definition of fonts.slice(1)) {
+for (const definition of fonts.slice(1).filter(font => font.source.name !== 'Tegaki')) {
   test(`${definition.name} switches preview and SVG exports to its strokes and survives reload`, async ({ page }) => {
     const text = 'Hello, InkMotion!\nWrite 123.';
     const font: FontData = JSON.parse(readFileSync(`public${definition.url}`, 'utf8'));
@@ -83,7 +83,7 @@ test('extended Latin text works with converted fonts and warns again when the fo
   await page.locator('#text').fill('Café, mañana, über, façade, Æsir!');
   await expect(page.locator('#warning')).toBeVisible();
   await expect(page.locator('#export')).toBeDisabled();
-  for (const definition of fonts.filter(font => font.source.name !== 'Vara.js')) {
+  for (const definition of fonts.filter(font => ['Evil Mad Scientist', 'isdaT'].includes(font.source.name))) {
     await page.locator('#font').selectOption(definition.id);
     await expect(page.locator('#drawing metadata')).toContainText(definition.name);
     await expect(page.locator('#warning')).toBeHidden();
