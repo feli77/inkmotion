@@ -113,7 +113,10 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
           <section class="settings-group" aria-labelledby="typography-title">
             <h3 id="typography-title" class="group-title">${icons.type}<span data-i18n="settings.typography">${t('settings.typography')}</span></h3>
             <div class="group-fields">
-              <div class="field"><label for="font" data-i18n="font.label">${t('font.label')}</label><select id="font">${fonts.map(font => `<option value="${font.id}" data-i18n="${font.nameKey}">${t(font.nameKey)}</option>`).join('')}</select></div>
+              <div class="field"><label for="font" data-i18n="font.label">${t('font.label')}</label><select id="font">${[true, false].map(chinese => {
+                const label = chinese ? 'font.groupChinese' : 'font.groupLatin';
+                return `<optgroup label="${t(label)}" data-i18n-label="${label}">${fonts.filter(font => Boolean(font.chinese) === chinese).map(font => `<option value="${font.id}" data-i18n="${font.nameKey}">${t(font.nameKey)}</option>`).join('')}</optgroup>`;
+              }).join('')}</select></div>
               <div class="paired-controls">
                 ${numericControl('fontSize')}
                 ${numericControl('lineHeight')}
@@ -325,7 +328,7 @@ function refreshMessages(): void {
 
 function localizeInterface(): void {
   updateTheme();
-  for (const attribute of ['textContent', 'aria-label', 'placeholder', 'title']) {
+  for (const attribute of ['textContent', 'aria-label', 'placeholder', 'title', 'label']) {
     const marker = attribute === 'textContent' ? 'data-i18n' : `data-i18n-${attribute}`;
     document.querySelectorAll<HTMLElement>(`[${marker}]`).forEach(element => {
       const message = t(element.getAttribute(marker) as MessageKey);
@@ -401,6 +404,8 @@ document.querySelector('.language-switcher')!.addEventListener('focusout', event
 });
 
 async function render(): Promise<void> {
+  // A cached font can render before the input debounce has fired.
+  clearTimeout(renderTimer);
   renderTimer = 0;
   if (!font || composing) return;
   const request = ++renderRequest;

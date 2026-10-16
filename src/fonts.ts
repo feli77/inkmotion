@@ -7,6 +7,8 @@ export interface FontDefinition {
   url: string;
   source: { name: string; url: string };
   fallbackSource?: { font: string; name: string; url: string };
+  chinese?: boolean;
+  attribution?: string;
 }
 
 const varaSource = { name: 'Vara.js', url: 'https://github.com/akzhy/Vara' };
@@ -32,7 +34,18 @@ export const fonts: readonly FontDefinition[] = [
   { id: 'relief-singleline', name: 'Relief SingleLine', nameKey: 'font.reliefSingleLine', url: '/fonts/relief-singleline.json', source: reliefSource },
   {
     id: 'chinese-kaiti', name: 'InkMotion Kaiti', nameKey: 'font.chineseKaiti', url: '/fonts/chinese-kaiti.json',
+    chinese: true,
     source: { name: 'Make Me a Hanzi', url: 'https://github.com/skishore/makemeahanzi/tree/bddc96d41bef78427ed0e034e9f7e31d71fd1b92' },
     fallbackSource: { font: 'Relief SingleLine', ...reliefSource },
+  },
+  {
+    id: 'ink-pen', name: 'InkMotion Pen', nameKey: 'font.inkPen', url: '/fonts/ink-pen.json', chinese: true,
+    source: { name: 'LXGW WenKai', url: 'https://github.com/lxgw/LxgwWenKai/releases/tag/v1.522' },
+    attribution: 'Derived font under SIL OFL 1.1; see LICENSE-Ink-Pen.txt. Stroke extraction: Tegaki 32654a4cfb0fa6a2873264cf693316acd59d1627. Geometry follows the original font; order is inferred with Make Me a Hanzi references.',
+  },
+  {
+    id: 'ink-note', name: 'InkMotion Note', nameKey: 'font.inkNote', url: '/fonts/ink-note.json', chinese: true,
+    source: { name: 'Yozai', url: 'https://github.com/lxgw/yozai-font/releases/tag/v0.868' },
+    attribution: 'Derived font under SIL OFL 1.1; see LICENSE-Ink-Note.txt. Stroke extraction: Tegaki 32654a4cfb0fa6a2873264cf693316acd59d1627. Geometry follows the original font; order is inferred with Make Me a Hanzi references.',
   },
 ];

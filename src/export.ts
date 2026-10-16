@@ -180,7 +180,7 @@ export function exportSvg(scene: Scene, mode: ExportMode = 'animated', time?: nu
     + `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="inkmotion-title inkmotion-desc">\n`
     + `  <title id="inkmotion-title">${xml(title)}</title>\n`
     + `  <desc id="inkmotion-desc">${xml(t(mode === 'animated' ? 'export.animatedDescription' : 'export.staticDescription', { font: font.name, source: font.source.name }))}</desc>\n`
-    + `  <metadata>Created with InkMotion. Font paths: ${xml(font.name)} from ${xml(font.source.name)}, ${xml(font.source.url)}.${xml(fallback)}</metadata>\n`
+    + `  <metadata>Created with InkMotion. Font paths: ${xml(font.name)} from ${xml(font.source.name)}, ${xml(font.source.url)}.${xml(fallback)}${font.attribution ? ` ${xml(font.attribution)}` : ''}</metadata>\n`
     + outlineFilter
     + background
     + `  <g fill="none" stroke="${ink}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round">\n`
