@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { fonts } from '../src/fonts';
 import type { FontData } from '../src/types';
+import sourceGlyphs from './fixtures/svg-font-glyphs.json' with { type: 'json' };
 
 test.use({ locale: 'zh-CN', reducedMotion: 'reduce' });
 
@@ -18,7 +19,7 @@ for (const definition of fonts.slice(1)) {
     await expect(page.locator('#export')).toBeEnabled();
     await expect.poll(() => page.locator('#drawing path').evaluateAll(elements => elements.map(path => path.getAttribute('d')))).toEqual(paths);
     await expect(page.locator('#warning')).toBeHidden();
-    await expect(page.locator('#drawing desc')).toContainText(`Vara.js / ${definition.name}`);
+    await expect(page.locator('#drawing desc')).toContainText(`${definition.source.name} / ${definition.name}`);
 
     const preview = await page.locator('#drawing path').evaluateAll(elements => elements.map(path => [path.getAttribute('d'), path.getAttribute('transform')]));
     for (const mode of ['animated', 'static']) {
@@ -39,8 +40,9 @@ for (const definition of fonts.slice(1)) {
         };
       }, svg);
       expect(exported.paths).toEqual(preview);
-      expect(exported.description).toContain(`Vara.js / ${definition.name}`);
-      expect(exported.metadata).toContain(`Font paths: ${definition.name} from Vara.js`);
+      expect(exported.description).toContain(`${definition.source.name} / ${definition.name}`);
+      expect(exported.metadata).toContain(`Font paths: ${definition.name} from ${definition.source.name}`);
+      expect(exported.metadata).toContain(definition.source.url);
       expect(exported.animations > 0).toBe(mode === 'animated');
       expect(exported.errors).toBe(0);
     }
@@ -52,6 +54,59 @@ for (const definition of fonts.slice(1)) {
     await expect.poll(() => page.locator('#drawing path').evaluateAll(elements => elements.map(path => path.getAttribute('d')))).toEqual(paths);
   });
 }
+
+test('extended Latin text works with converted fonts and warns again when the font lacks glyphs', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#export')).toBeEnabled();
+  await page.locator('#text').fill('Café, mañana, über, façade, Æsir!');
+  await expect(page.locator('#warning')).toBeVisible();
+  await expect(page.locator('#export')).toBeDisabled();
+  for (const definition of fonts.filter(font => font.source.name !== 'Vara.js')) {
+    await page.locator('#font').selectOption(definition.id);
+    await expect(page.locator('#drawing metadata')).toContainText(definition.name);
+    await expect(page.locator('#warning')).toBeHidden();
+    await expect(page.locator('#export')).toBeEnabled();
+  }
+  await page.locator('#font').selectOption('satisfy');
+  await expect(page.locator('#warning')).toContainText('请更换字体');
+  await expect(page.locator('#export')).toBeDisabled();
+});
+
+test('SVG conversion preserves source curves, orientation, width and pen lifts', async ({ page }) => {
+  await page.goto('/');
+  for (const sample of sourceGlyphs) {
+    const result = await page.evaluate(async sample => {
+      const { loadFont } = await import('/src/engine.ts');
+      const font = await loadFont(`/fonts/${sample.fontId}.json`);
+      const glyph = font.c[String(sample.character.codePointAt(0))];
+      const ns = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(ns, 'svg');
+      document.body.append(svg);
+      const measure = (data: string[], flip = false) => {
+        const group = document.createElementNS(ns, 'g');
+        svg.replaceChildren(group);
+        let length = 0;
+        for (const d of data) {
+          const path = document.createElementNS(ns, 'path');
+          path.setAttribute('d', d);
+          if (flip) path.setAttribute('transform', 'scale(1 -1)');
+          group.append(path);
+          length += path.getTotalLength();
+        }
+        const box = group.getBBox();
+        return [box.x, box.y, box.width, box.height, length];
+      };
+      const original = measure([sample.d], true);
+      const converted = measure(glyph.paths.map(path => path.d));
+      svg.remove();
+      return { original, converted, width: glyph.w, count: glyph.paths.length, units: font.p.tf };
+    }, sample);
+    expect(result.width).toBe(sample.width);
+    expect(result.units).toBe(1000);
+    expect(result.count).toBe((sample.d.match(/[Mm]/g) ?? []).length);
+    result.converted.forEach((value, index) => expect(value).toBeCloseTo(result.original[index], 2));
+  }
+});
 
 test('loads fonts on demand, retries a failed switch and reuses downloaded fonts', async ({ page }) => {
   const requests: string[] = [];

@@ -1,10 +1,11 @@
 # InkMotion
 
-一个轻量的英文手写动画网页工具。基于 Vara.js 的笔画 JSON 原理，以 SVG 路径逐笔绘制；使用原生 TypeScript，所有文本处理与导出在浏览器完成。
+一个轻量的手写动画网页工具。以 SVG 路径逐笔绘制，支持 Vara 笔画 JSON 和转换后的单线 SVG 字体；使用原生 TypeScript，所有文本处理与导出在浏览器完成。
 
 ## 功能
 
-- 四款笔画字体：Satisfy（连笔手写）、Pacifico（圆润手写）、Parisienne（优雅花体）及 Shadows Into Light（随性手写），均支持英文字母、数字和全部可打印 ASCII 标点。
+- 12 款笔画字体：原有的 Satisfy、Pacifico、Parisienne、Shadows Into Light，以及 7 款 EMS 字体和 Relief SingleLine；均支持英文字母、数字和全部可打印 ASCII 标点。
+- EMS 字体还包含带重音的拉丁字母；Relief SingleLine 支持更广的拉丁字符集。是否可导出按当前字体的实际字符覆盖判断。
 - 多行文本、自动换行、长词断行；兼容弯引号、长破折号、省略号与不换行空格。
 - 实时预览；速度、字号、笔画粗细、颜色、行距、对齐、背景及循环设置。
 - 背景默认透明，预览融入深浅色页面；笔画和背景均支持色板、十六进制输入及自定义颜色，自动保存新颜色，长按可删除色块，透明背景选项始终保留。
@@ -12,7 +13,7 @@
 - 预览下方一键导出动画 SVG、静态 SVG、PNG、GIF 或视频；SVG / PNG / GIF 可选透明背景。
 - 支持简体中文、繁体中文、英语、西班牙语、法语、德语、葡萄牙语、俄语、日语和韩语；右上角语言图标可切换，自动识别浏览器语言并记住手动选择。
 
-不支持的字符会显示提示并禁用导出，避免生成缺字文件。减少动态效果偏好开启时，预览默认展示完整文字，仍可手动播放。
+当前字体不支持的字符会显示提示并禁用导出，可更换字体或移除这些字符。减少动态效果偏好开启时，预览默认展示完整文字，仍可手动播放。
 
 ## 本地运行
 
@@ -79,6 +80,32 @@ npm test
 
 ## 字体与许可
 
-四款字体的笔画 JSON 均来自 [akzhy/Vara](https://github.com/akzhy/Vara/tree/2e76da0b84d8f46f5a676dd285fa35c1382df3b8/fonts)，Vara 数据许可为 MIT。原字体 Satisfy 许可为 Apache 2.0；Pacifico、Parisienne 和 Shadows Into Light 许可为 SIL Open Font License 1.1。数据在本地随应用分发，无需第三方字体服务。来源和完整许可保存在 `public/fonts/` 下。
+Satisfy、Pacifico、Parisienne 和 Shadows Into Light 来自 [akzhy/Vara](https://github.com/akzhy/Vara/tree/2e76da0b84d8f46f5a676dd285fa35c1382df3b8/fonts)，Vara 数据许可为 MIT。原字体 Satisfy 许可为 Apache 2.0，其余三款为 SIL Open Font License 1.1。
+
+新增字体采用原生单线笔画资源，统一转换为现有的 JSON 格式，不增加运行时依赖：
+
+| 字体 | 风格 | 原字形来源 |
+| --- | --- | --- |
+| EMS Allure | 优雅连笔 | Allura |
+| EMS Capitol | 细腻圆体 | Sacramento |
+| EMS Casual Hand | 随性手写 | Covered By Your Grace |
+| EMS Delight | 圆润印刷 | Delius |
+| EMS Neato | 斜体手写 | Bad Script |
+| EMS Tech | 建筑手绘 | Architects Daughter |
+| EMS Nixish | 复古衬线 | Nixie One |
+| Relief SingleLine | 简洁单线 | Relief SingleLine |
+
+EMS 笔画由 Sheldon B. Michaels 制作、Windell H. Oskay 转换为 SVG，来自 [Evil Mad Scientist 的 SVG 字体库](https://gitlab.com/oskay/svg-fonts/-/tree/8c71f2d9e1a5292047bb88e5595a766241b82cc6/fonts/EMS)。Relief 来自 [isdaT 的 Relief SingleLine 项目](https://github.com/isdat-type/Relief-SingleLine/tree/01dfc5779ec1e9e4b288d96c6c96c23bfccbaf9d)。这些字体及转换后的数据均遵循 SIL OFL 1.1；保留各自的原作者、来源、修改说明和完整许可。
+
+字体数据在本地随应用分发，按需加载，无需第三方字体服务。来源和完整许可保存在 `public/fonts/` 下，SVG 导出标注实际字体及其来源。
+
+维护字体时可用开发脚本重新转换 SVG 字体（需要 [uv](https://docs.astral.sh/uv/)，FontTools 版本已在脚本中固定）：
+
+```sh
+uv run scripts/convert-svg-font.py /path/to/EMSAllure.svg public/fonts/ems-allure.json
+uv run scripts/convert-svg-font.py /path/to/ReliefSingleLineSVG-Regular.svg public/fonts/relief-singleline.json
+```
+
+转换会翻转字体的 Y 轴、保留曲线和字符宽度，并将每次抬笔拆成独立笔画。只收录单个 Unicode 字符，不处理连字和字距对；原始文件使用上述固定版本，许可文件单独保留。日常开发、构建和使用网页均无需 Python 或 FontTools。
 
 本项目借鉴笔画 JSON 与 SVG 绘制原理，未引入 Vara.js 运行库。GIF 导出使用 [gifenc](https://github.com/mattdesl/gifenc)，MIT 许可保存在 `public/licenses/LICENSE-gifenc.txt`。

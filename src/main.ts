@@ -338,7 +338,7 @@ function localizeInterface(): void {
   const description = drawing.querySelector('desc');
   if (description) {
     const selected = fonts.find(item => item.id === scene?.settings.fontId) ?? fonts[0];
-    description.textContent = t('export.animatedDescription', { font: selected.name });
+    description.textContent = t('export.animatedDescription', { font: selected.name, source: selected.source.name });
   }
   updateLabels();
   refreshMessages();

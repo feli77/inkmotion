@@ -50,7 +50,7 @@ test('editing updates preview, settings, playback and SVG downloads', async ({ p
 
 test('empty and unsupported input prevent exporting; draft survives reload', async ({ page }) => {
   await page.locator('#text').fill('Hello 你好');
-  await expect(page.locator('#warning')).toContainText('暂不支持');
+  await expect(page.locator('#warning')).toContainText('不支持以下字符');
   for (const button of await page.locator('.export-controls button').all()) await expect(button).toBeDisabled();
   await page.locator('#text').fill('');
   await expect(page.locator('#empty')).toContainText('写点什么');

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { fonts } from '../src/fonts';
 
 test.use({ locale: 'en-US' });
 
@@ -55,7 +56,7 @@ test('switches every language without replacing the drawing or losing editor set
     await expect(page.locator('#text')).toHaveValue('Keep this draft.');
     await expect(page.locator('#font')).toHaveValue('parisienne');
     await expect(page.locator('#drawing desc')).toContainText('Vara.js / Parisienne');
-    await expect(page.locator('#font option')).toHaveCount(4);
+    await expect(page.locator('#font option')).toHaveCount(fonts.length);
     const fontNames = await page.locator('#font option').allTextContents();
     expect(fontNames.every(name => name.includes(' · ') && !name.includes('font.'))).toBe(true);
     await expect(page.locator('#fontSize-value')).toHaveValue('64');
@@ -82,7 +83,7 @@ test('translates accessible labels, warnings, empty states and export results im
   await expect(page.locator('#warning')).toContainText('Unsupported characters: 你 好');
   await page.locator('#language-toggle').click();
   await page.getByRole('menuitemradio', { name: '简体中文', exact: true }).click();
-  await expect(page.locator('#warning')).toContainText('以下字符暂不支持：你 好');
+  await expect(page.locator('#warning')).toContainText('当前字体不支持以下字符：你 好');
   await expect(page.locator('#count')).toHaveText('8 字符');
   await expect(page.locator('#export')).toBeDisabled();
   await expect(page.getByRole('slider', { name: '字号', exact: true })).toBeVisible();
@@ -114,12 +115,12 @@ test('translates accessible labels, warnings, empty states and export results im
   const stream = await (await downloadEvent).createReadStream();
   let data = '';
   for await (const chunk of stream!) data += chunk.toString();
-  expect(data).toContain('Animated English handwriting strokes. Font paths: Vara.js / Satisfy.');
+  expect(data).toContain('Animated handwriting strokes. Font paths: Vara.js / Satisfy.');
   await expect(page.locator('#status')).toBeEmpty();
   await page.locator('#language-toggle').click();
   await page.getByRole('menuitemradio', { name: '简体中文', exact: true }).click();
   await expect(page.locator('#status')).toBeEmpty();
-  await expect(page.locator('#drawing desc')).toHaveText('英文手写笔画动画。字体路径来源：Vara.js / Satisfy。');
+  await expect(page.locator('#drawing desc')).toHaveText('手写笔画动画。字体路径来源：Vara.js / Satisfy。');
 
   await page.evaluate(() => { URL.createObjectURL = () => { throw new Error('Simulated export failure'); }; });
   await page.locator('#export').click();
