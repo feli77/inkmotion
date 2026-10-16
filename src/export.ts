@@ -1,4 +1,5 @@
 import { t } from './i18n';
+import { fonts } from './fonts';
 import type { Scene, Stroke } from './types';
 
 export type ExportMode = 'animated' | 'static';
@@ -110,6 +111,7 @@ export function exportSvg(scene: Scene, mode: ExportMode = 'animated', time?: nu
   );
   const cycle = duration + LOOP_HOLD_SECONDS;
   const title = scene.text.trim() ? scene.text : t('app.title');
+  const font = fonts.find(item => item.id === scene.settings.fontId) ?? fonts[0];
   const background = scene.settings.background === 'transparent'
     ? ''
     : `  <rect width="${width}" height="${height}" fill="${color(scene.settings.background, '#ffffff')}"/>\n`;
@@ -117,8 +119,8 @@ export function exportSvg(scene: Scene, mode: ExportMode = 'animated', time?: nu
   return '<?xml version="1.0" encoding="UTF-8"?>\n'
     + `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="inkmotion-title inkmotion-desc">\n`
     + `  <title id="inkmotion-title">${xml(title)}</title>\n`
-    + `  <desc id="inkmotion-desc">${xml(t(mode === 'animated' ? 'export.animatedDescription' : 'export.staticDescription'))}</desc>\n`
-    + '  <metadata>Created with InkMotion. Font paths: Satisfy from Vara.js, https://github.com/akzhy/Vara.</metadata>\n'
+    + `  <desc id="inkmotion-desc">${xml(t(mode === 'animated' ? 'export.animatedDescription' : 'export.staticDescription', { font: font.name }))}</desc>\n`
+    + `  <metadata>Created with InkMotion. Font paths: ${xml(font.name)} from Vara.js, https://github.com/akzhy/Vara.</metadata>\n`
     + background
     + `  <g fill="none" stroke="${ink}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round">\n`
     + scene.strokes.map((stroke) => pathSvg(stroke, scene, mode, cycle, time)).join('')

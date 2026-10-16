@@ -336,7 +336,10 @@ function localizeInterface(): void {
   renderPalette();
   // Update the accessible SVG description without restarting the current animation.
   const description = drawing.querySelector('desc');
-  if (description) description.textContent = t('export.animatedDescription');
+  if (description) {
+    const selected = fonts.find(item => item.id === scene?.settings.fontId) ?? fonts[0];
+    description.textContent = t('export.animatedDescription', { font: selected.name });
+  }
   updateLabels();
   refreshMessages();
 }

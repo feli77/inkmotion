@@ -4,7 +4,7 @@
 
 ## 功能
 
-- Satisfy 连笔字体：英文字母、数字和全部可打印 ASCII 标点。
+- 四款笔画字体：Satisfy（连笔手写）、Pacifico（圆润手写）、Parisienne（优雅花体）及 Shadows Into Light（随性手写），均支持英文字母、数字和全部可打印 ASCII 标点。
 - 多行文本、自动换行、长词断行；兼容弯引号、长破折号、省略号与不换行空格。
 - 实时预览；速度、字号、笔画粗细、颜色、行距、对齐、背景及循环设置。
 - 背景默认透明，预览融入深浅色页面；笔画和背景均支持色板、十六进制输入及自定义颜色，自动保存新颜色，长按可删除色块，透明背景选项始终保留。
@@ -63,7 +63,7 @@ PNG 包含完整书写结果并保留透明度。GIF 按当前书写速度生成
 | 扩展 | 文件 | 做法 |
 | --- | --- | --- |
 | 界面语言 | `src/i18n.ts` | 在 `locales` 注册语言并按 `Messages` 类型添加完整字典；文案通过 `t()` 读取，静态界面用 `data-i18n` 标记。优先采用已保存的选择，再按浏览器语言列表匹配地区或基础语言，无匹配时回退英语。 |
-| 笔画字体 | `src/fonts.ts` | 将兼容 Vara `c/p` 格式的 JSON 放入 `public/fonts/`，注册字体及文案键；保留字体许可。 |
+| 笔画字体 | `src/fonts.ts` | 将兼容 Vara `c/p` 格式的 JSON 放入 `public/fonts/`，注册字体 ID、原名和各语言文案键；保留字体许可。字体按需加载并缓存，选择保存在本地草稿中；SVG 自动标注对应字体来源。 |
 | 导出格式 | `src/export.ts` | 在 `exportFormats` 注册 `ExportAdapter`，返回 `Blob` 或 `Promise<Blob>`；排版和动画核心无需修改。 |
 
 `src/engine.ts` 负责字体测量、排版与确定性笔画时间。`Scene` 是预览和导出共享的数据；预览直接复用 SVG 导出实现，`src/raster.ts` 将同一 SVG 笔画与时序光栅化为 PNG / GIF，`src/video.ts` 通过浏览器原生 `MediaRecorder` 将这些帧录制为视频。GIF 编码器及视频模块按需加载。`src/main.ts` 负责输入和播放器控制，`src/style.css` 负责响应式布局。
@@ -79,6 +79,6 @@ npm test
 
 ## 字体与许可
 
-Satisfy 笔画 JSON 来自 [akzhy/Vara](https://github.com/akzhy/Vara/blob/master/fonts/Satisfy/SatisfySL.json)。Vara 数据许可为 MIT，原字体 Satisfy 许可为 Apache 2.0。来源和完整许可保存在 `public/fonts/` 下。
+四款字体的笔画 JSON 均来自 [akzhy/Vara](https://github.com/akzhy/Vara/tree/2e76da0b84d8f46f5a676dd285fa35c1382df3b8/fonts)，Vara 数据许可为 MIT。原字体 Satisfy 许可为 Apache 2.0；Pacifico、Parisienne 和 Shadows Into Light 许可为 SIL Open Font License 1.1。数据在本地随应用分发，无需第三方字体服务。来源和完整许可保存在 `public/fonts/` 下。
 
 本项目借鉴笔画 JSON 与 SVG 绘制原理，未引入 Vara.js 运行库。GIF 导出使用 [gifenc](https://github.com/mattdesl/gifenc)，MIT 许可保存在 `public/licenses/LICENSE-gifenc.txt`。

@@ -1,38 +1,41 @@
 import { expect, test } from '@playwright/test';
+import { fonts } from '../src/fonts';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
-test('all printable ASCII stays inside the canvas, including thick strokes', async ({ page }) => {
-  const result = await page.evaluate(async () => {
-    const { loadFont, createScene, renderScene } = await import('/src/engine.ts');
-    const font = await loadFont('/fonts/satisfy.json');
-    const settings = {
-      fontId: 'satisfy', fontSize: 56, strokeWidth: 12, speed: 1,
-      color: '#252832', lineHeight: 1.65, alignment: 'right' as const,
-      background: 'transparent', loop: false, width: 280, padding: 24,
-    };
-    const text = Array.from({ length: 95 }, (_, index) => String.fromCharCode(index + 32)).join('');
-    const scene = createScene(font, text, settings);
-    const svg = renderScene(scene);
-    document.body.append(svg);
-    const box = svg.querySelector('g')!.getBBox();
-    const margin = settings.strokeWidth / 2;
-    const bounds = {
-      left: box.x - margin, top: box.y - margin,
-      right: box.x + box.width + margin, bottom: box.y + box.height + margin,
-    };
-    svg.remove();
-    return { unsupported: scene.unsupported, width: scene.width, height: scene.height, count: scene.strokes.length, bounds };
+for (const definition of fonts) {
+  test(`${definition.name} keeps all printable ASCII inside the canvas, including thick strokes`, async ({ page }) => {
+    const result = await page.evaluate(async ({ id, url }) => {
+      const { loadFont, createScene, renderScene } = await import('/src/engine.ts');
+      const font = await loadFont(url);
+      const settings = {
+        fontId: id, fontSize: 56, strokeWidth: 12, speed: 1,
+        color: '#252832', lineHeight: 1.65, alignment: 'right' as const,
+        background: 'transparent', loop: false, width: 280, padding: 24,
+      };
+      const text = Array.from({ length: 95 }, (_, index) => String.fromCharCode(index + 32)).join('');
+      const scene = createScene(font, text, settings);
+      const svg = renderScene(scene);
+      document.body.append(svg);
+      const box = svg.querySelector('g')!.getBBox();
+      const margin = settings.strokeWidth / 2;
+      const bounds = {
+        left: box.x - margin, top: box.y - margin,
+        right: box.x + box.width + margin, bottom: box.y + box.height + margin,
+      };
+      svg.remove();
+      return { unsupported: scene.unsupported, width: scene.width, height: scene.height, count: scene.strokes.length, bounds };
+    }, definition);
+    expect(result.unsupported).toEqual([]);
+    expect(result.count).toBeGreaterThan(94);
+    expect(result.bounds.left).toBeGreaterThanOrEqual(0);
+    expect(result.bounds.top).toBeGreaterThanOrEqual(0);
+    expect(result.bounds.right).toBeLessThanOrEqual(result.width);
+    expect(result.bounds.bottom).toBeLessThanOrEqual(result.height);
   });
-  expect(result.unsupported).toEqual([]);
-  expect(result.count).toBeGreaterThan(94);
-  expect(result.bounds.left).toBeGreaterThanOrEqual(0);
-  expect(result.bounds.top).toBeGreaterThanOrEqual(0);
-  expect(result.bounds.right).toBeLessThanOrEqual(result.width);
-  expect(result.bounds.bottom).toBeLessThanOrEqual(result.height);
-});
+}
 
 test('word wrapping, long-word splitting and blank lines retain every stroke', async ({ page }) => {
   const result = await page.evaluate(async () => {

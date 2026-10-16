@@ -36,6 +36,7 @@ for (const language of languages) {
 test('switches every language without replacing the drawing or losing editor settings', async ({ page }) => {
   await page.goto('/');
   await page.locator('#text').fill('Keep this draft.');
+  await page.locator('#font').selectOption('parisienne');
   await page.locator('#fontSize-value').fill('64');
   await page.locator('#color-value').fill('#123456');
   await page.locator('#alignment [data-alignment="right"]').click();
@@ -52,6 +53,11 @@ test('switches every language without replacing the drawing or losing editor set
     await expect(page.locator('#language-menu')).toBeHidden();
     await expect(page.locator('#language-toggle')).toBeFocused();
     await expect(page.locator('#text')).toHaveValue('Keep this draft.');
+    await expect(page.locator('#font')).toHaveValue('parisienne');
+    await expect(page.locator('#drawing desc')).toContainText('Vara.js / Parisienne');
+    await expect(page.locator('#font option')).toHaveCount(4);
+    const fontNames = await page.locator('#font option').allTextContents();
+    expect(fontNames.every(name => name.includes(' · ') && !name.includes('font.'))).toBe(true);
     await expect(page.locator('#fontSize-value')).toHaveValue('64');
     await expect(page.locator('#color-value')).toHaveValue('#123456');
     await expect(page.locator('#alignment [data-alignment="right"]')).toHaveAttribute('aria-pressed', 'true');
@@ -66,6 +72,7 @@ test('switches every language without replacing the drawing or losing editor set
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('lang', 'ko');
   await expect(page.locator('#text')).toHaveValue('Keep this draft.');
+  await expect(page.locator('#font')).toHaveValue('parisienne');
   await expect(page.locator('#fontSize-value')).toHaveValue('64');
 });
 
