@@ -145,7 +145,7 @@ input[type='checkbox']:checked::after { transform: translateX(14px); }
 .replay-control > svg { width: 18px; height: 18px; }
 @keyframes export-pulse { to { opacity: .25; } }
 .paper-area { min-width: 0; max-height: 660px; overflow: auto; }
-.paper { position: relative; display: flex; align-items: center; width: 100%; min-height: 260px; }
+.paper { position: relative; display: flex; align-items: flex-start; width: 100%; min-height: 260px; }
 .drawing { width: 100%; }
 .drawing > svg { max-width: 100%; width: 100%; height: auto; border-radius: 12px; }
 .empty-state { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; padding: 24px; text-align: center; color: var(--muted); font-size: 13px; }

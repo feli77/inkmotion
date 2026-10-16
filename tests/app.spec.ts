@@ -340,6 +340,37 @@ test('mobile has no horizontal overflow and transparent export preserves the bac
   await page.screenshot({ path: 'test-results/mobile.png', fullPage: true });
 });
 
+for (const width of [1440, 760, 375, 320]) {
+  test(`replay stays inside the canvas at the top right at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.locator('#background-palette [data-color="#ffffff"]').click();
+    for (const { text, fontSize } of [
+      { text: 'Hi', fontSize: '28' },
+      { text: 'Hi', fontSize: '96' },
+      { text: 'One\nTwo\nThree\nFour\nFive\nSix', fontSize: '96' },
+    ]) {
+      await page.locator('#text').fill(text);
+      await page.locator('#fontSize').fill(fontSize);
+      await expect(page.locator('#drawing title')).toHaveText(text);
+      await expect(page.locator('#replay')).toBeEnabled();
+      const canvas = (await page.locator('#drawing > svg').boundingBox())!;
+      const replay = (await page.locator('#replay').boundingBox())!;
+      const inset = width <= 600 ? 8 : 12;
+      expect(replay.y - canvas.y).toBeCloseTo(inset, 1);
+      expect(canvas.x + canvas.width - replay.x - replay.width).toBeCloseTo(inset, 1);
+      expect(replay.x).toBeGreaterThan(canvas.x);
+      expect(replay.y + replay.height).toBeLessThan(canvas.y + canvas.height);
+      await page.locator('#replay').click();
+      expect(await page.locator('#drawing > svg').evaluate((svg: SVGSVGElement) => svg.animationsPaused())).toBe(false);
+      if (text === 'Hi' && fontSize === '28') {
+        await page.screenshot({ path: testInfo.outputPath('single-line-replay.png'), fullPage: true });
+      }
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+}
+
 for (const width of [1440, 900, 761, 760, 375, 320]) {
   test(`preview blends into the page above settings with responsive actions at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
