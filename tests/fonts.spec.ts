@@ -6,6 +6,28 @@ import sourceGlyphs from './fixtures/svg-font-glyphs.json' with { type: 'json' }
 
 test.use({ locale: 'zh-CN', reducedMotion: 'reduce' });
 
+test('removed EMS draft fonts fall back to Satisfy while keeping text and settings', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('inkmotion.draft.v1', JSON.stringify({
+      text: 'Keep this draft.',
+      settings: { fontId: 'ems-allure', fontSize: 64, color: '#123456' },
+    }));
+  });
+  const requests: string[] = [];
+  page.on('request', request => {
+    if (request.url().includes('/fonts/')) requests.push(new URL(request.url()).pathname);
+  });
+  await page.goto('/');
+  await expect(page.locator('#export')).toBeEnabled();
+  await expect(page.locator('#font')).toHaveValue('satisfy');
+  expect(await page.locator('#font option[value^="ems-"]').evaluateAll(options => options.map(option => option.getAttribute('value')))).toEqual(['ems-tech', 'ems-nixish']);
+  await expect(page.locator('#text')).toHaveValue('Keep this draft.');
+  await expect(page.locator('#drawing title')).toHaveText('Keep this draft.');
+  await expect(page.locator('#fontSize-value')).toHaveValue('64');
+  await expect(page.locator('#drawing > svg > g')).toHaveAttribute('stroke', '#123456');
+  expect(requests).toEqual(['/fonts/satisfy.json']);
+});
+
 for (const definition of fonts.slice(1)) {
   test(`${definition.name} switches preview and SVG exports to its strokes and survives reload`, async ({ page }) => {
     const text = 'Hello, InkMotion!\nWrite 123.';

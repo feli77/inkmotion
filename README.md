@@ -4,7 +4,7 @@
 
 ## 功能
 
-- 12 款笔画字体：原有的 Satisfy、Pacifico、Parisienne、Shadows Into Light，以及 7 款 EMS 字体和 Relief SingleLine；均支持英文字母、数字和全部可打印 ASCII 标点。
+- 7 款笔画字体：Satisfy、Pacifico、Parisienne、Shadows Into Light、EMS Tech、EMS Nixish 和 Relief SingleLine；均支持英文字母、数字和全部可打印 ASCII 标点。
 - EMS 字体还包含带重音的拉丁字母；Relief SingleLine 支持更广的拉丁字符集。是否可导出按当前字体的实际字符覆盖判断。
 - 多行文本、自动换行、长词断行；兼容弯引号、长破折号、省略号与不换行空格。
 - 实时预览；速度、字号、笔画粗细、颜色、行距、对齐、背景及循环设置。
@@ -86,11 +86,6 @@ Satisfy、Pacifico、Parisienne 和 Shadows Into Light 来自 [akzhy/Vara](https
 
 | 字体 | 风格 | 原字形来源 |
 | --- | --- | --- |
-| EMS Allure | 优雅连笔 | Allura |
-| EMS Capitol | 细腻圆体 | Sacramento |
-| EMS Casual Hand | 随性手写 | Covered By Your Grace |
-| EMS Delight | 圆润印刷 | Delius |
-| EMS Neato | 斜体手写 | Bad Script |
 | EMS Tech | 建筑手绘 | Architects Daughter |
 | EMS Nixish | 复古衬线 | Nixie One |
 | Relief SingleLine | 简洁单线 | Relief SingleLine |
@@ -102,7 +97,7 @@ EMS 笔画由 Sheldon B. Michaels 制作、Windell H. Oskay 转换为 SVG，来�
 维护字体时可用开发脚本重新转换 SVG 字体（需要 [uv](https://docs.astral.sh/uv/)，FontTools 版本已在脚本中固定）：
 
 ```sh
-uv run scripts/convert-svg-font.py /path/to/EMSAllure.svg public/fonts/ems-allure.json
+uv run scripts/convert-svg-font.py /path/to/EMSTech.svg public/fonts/ems-tech.json
 uv run scripts/convert-svg-font.py /path/to/ReliefSingleLineSVG-Regular.svg public/fonts/relief-singleline.json
 ```
 
