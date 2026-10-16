@@ -116,7 +116,7 @@ input[type='range']::-moz-range-thumb { width: 10px; height: 10px; background: v
 .custom-color svg { width: 18px; height: 18px; }
 .custom-color:focus-within span { outline: 2px solid var(--accent); outline-offset: 4px; }
 .value-input { width: calc(7ch + 16px); min-width: 0; flex-shrink: 0; padding: 4px 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--accent); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; line-height: 1.2; text-align: center; }
-#background-value { width: calc(11ch + 16px); max-width: 60%; }
+.color-field .value-input { width: calc(11ch + 16px); max-width: 60%; }
 .numeric-value { display: flex; align-items: center; gap: 4px; }
 .numeric-value input { appearance: textfield; width: 100%; min-width: 0; padding: 0; border: 0; outline: none; background: transparent; color: inherit; font: inherit; text-align: right; }
 .numeric-value input::-webkit-inner-spin-button, .numeric-value input::-webkit-outer-spin-button { appearance: none; margin: 0; }
