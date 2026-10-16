@@ -6,7 +6,7 @@ import sourceGlyphs from './fixtures/svg-font-glyphs.json' with { type: 'json' }
 
 test.use({ locale: 'zh-CN', reducedMotion: 'reduce' });
 
-for (const definition of fonts.slice(1).filter(font => font.id !== 'caveat')) {
+for (const definition of fonts.slice(1).filter(font => font.source.name !== 'Tegaki')) {
   test(`${definition.name} switches preview and SVG exports to its strokes and survives reload`, async ({ page }) => {
     const text = 'Hello, InkMotion!\nWrite 123.';
     const font: FontData = JSON.parse(readFileSync(`public${definition.url}`, 'utf8'));

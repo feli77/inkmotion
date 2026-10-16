@@ -26,6 +26,7 @@ interface FontMetrics {
   top: number;
   bottom: number;
   widthScale: number;
+  overhang: number;
 }
 
 interface PositionedCharacter {
@@ -62,6 +63,7 @@ function isFontData(value: unknown): value is FontData {
   if (!value || typeof value !== 'object') return false;
   const font = value as Partial<FontData>;
   if (!font.c || !font.p || !(font.p.tf > 0) || !Number.isFinite(font.p.tf) || !(font.p.space > 0) || !Number.isFinite(font.p.space)) return false;
+  if (font.p.preserveBearings !== undefined && typeof font.p.preserveBearings !== 'boolean') return false;
   return Object.values(font.c).every((glyph: FontGlyph) =>
     Number.isFinite(glyph.w) && Array.isArray(glyph.paths) && glyph.paths.every((path) =>
       typeof path.d === 'string' && Number.isFinite(path.mx) && Number.isFinite(path.my)
@@ -116,6 +118,7 @@ function measureFont(font: FontData, widthScale: number): FontMetrics {
   const glyphs = new Map<string, GlyphMetrics>();
   let top = 0;
   let bottom = 0;
+  let overhang = 0;
   try {
     for (const [code, source] of Object.entries(font.c)) {
       let left = Infinity;
@@ -150,15 +153,16 @@ function measureFont(font: FontData, widthScale: number): FontMetrics {
         left,
         top: glyphTop,
         bottom: glyphBottom,
-        width: Math.max(right - left, source.w),
+        width: font.p.preserveBearings ? source.w : Math.max(right - left, source.w),
       });
+      overhang = Math.max(overhang, -left, right - source.w);
       top = Math.min(top, glyphTop);
       bottom = Math.max(bottom, glyphBottom);
     }
   } finally {
     svg.remove();
   }
-  const metrics = { glyphs, top, bottom, widthScale };
+  const metrics = { glyphs, top, bottom, widthScale, overhang };
   metricCache.set(font, metrics);
   return metrics;
 }
@@ -177,14 +181,15 @@ export function createScene(font: FontData, input: string, initialSettings: Rend
   const text = [...normalized].map((character) =>
     character === ' ' || character === '\n' || metrics.glyphs.has(character) ? character : '?',
   ).join('');
-  const margin = settings.strokeWidth / 2 + 1;
-  const gap = Math.max(0.5 * scale, settings.strokeWidth * 0.35);
+  const preserveBearings = font.p.preserveBearings === true;
+  const margin = settings.strokeWidth / 2 + 1 + (preserveBearings ? metrics.overhang * scale : 0);
+  const gap = preserveBearings ? 0 : Math.max(0.5 * scale, settings.strokeWidth * 0.35);
   const minAdvance = settings.fontSize * 0.055 + settings.strokeWidth;
   const getGlyph = (character: string): GlyphMetrics | undefined => metrics.glyphs.get(character);
   const characterWidth = (character: string): number => {
     if (character === ' ') return font.p.space * scale;
     const glyph = getGlyph(character);
-    return glyph ? Math.max(glyph.width * scale, minAdvance) + gap : font.p.space * scale;
+    return glyph ? (preserveBearings ? glyph.width * scale : Math.max(glyph.width * scale, minAdvance) + gap) : font.p.space * scale;
   };
   const largestCharacter = Math.max(0, ...[...new Set([...text])].map(characterWidth));
   // If a single character exceeds a narrow canvas, expand the viewBox; the UI's
@@ -249,7 +254,7 @@ export function createScene(font: FontData, input: string, initialSettings: Rend
       }
       const glyphAdvance = characterWidth(character) - gap;
       const extraWidth = (glyphAdvance - glyph.width * scale) / 2;
-      const originX = settings.padding + margin + alignOffset + x + extraWidth - glyph.left * scale;
+      const originX = settings.padding + margin + alignOffset + x + (preserveBearings ? 0 : extraWidth - glyph.left * scale);
       const originY = baseline + lineIndex * lineStep;
       for (const path of glyph.paths) {
         if (path.length <= 0) continue;

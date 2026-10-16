@@ -30,7 +30,8 @@ for (const definition of fonts) {
       svg.remove();
       return { unsupported: scene.unsupported, width: scene.width, height: scene.height, count: scene.strokes.length, bounds };
     }, definition);
-    expect(result.unsupported).toEqual(definition.id === 'caveat' ? ['[', ']', '{', '}'] : []);
+    const missing = definition.id === 'italianno' ? ['[', ']', '_', '{', '}'] : ['[', ']', '{', '}'];
+    expect(result.unsupported).toEqual(definition.source.name === 'Tegaki' ? missing : []);
     expect(result.count).toBeGreaterThan(94);
     expect(result.bounds.left).toBeGreaterThanOrEqual(0);
     expect(result.bounds.top).toBeGreaterThanOrEqual(0);

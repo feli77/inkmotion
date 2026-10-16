@@ -4,8 +4,8 @@
 
 ## 功能
 
-- 13 款笔画字体：Satisfy、Pacifico、Parisienne、Shadows Into Light、7 款 EMS 字体、Relief SingleLine，以及保留自然粗细的 Caveat。原有 12 款支持全部可打印 ASCII 字符。
-- Caveat 使用 Tegaki 提取的逐点宽度与椭圆形笔端，沿书写轨迹保留原字体的粗细变化；「笔画粗细」等比例调整这些宽度。当前包含 90 个字符，支持英文字母、数字及大部分 ASCII 标点，暂不包含 `[]{}` 和带重音的拉丁字母。
+- 16 种字体样式：Satisfy、Pacifico、Parisienne、Shadows Into Light、7 款 EMS 字体、Relief SingleLine，以及保留自然粗细的 Caveat、Tangerine、Italianno、Ink Flourish。原有 12 款单线字体支持全部可打印 ASCII 字符。
+- 4 款变宽字体使用 Tegaki 提取的逐点宽度与椭圆形笔端，沿书写轨迹保留原字体的粗细变化；「笔画粗细」等比例调整这些宽度。Caveat、Tangerine、Ink Flourish 各包含 90 个字符，Italianno 包含 89 个字符；均支持英文字母、数字及大部分 ASCII 标点，暂不包含 `[]{}` 和带重音的拉丁字母，Italianno 另缺少下划线 `_`。Tangerine、Italianno、Ink Flourish 保留原字体的字距与左右留白，让字母自然衔接；Ink Flourish 源自 Parisienne，与原有单线 Parisienne 分别提供。
 - EMS 字体还包含带重音的拉丁字母；Relief SingleLine 支持更广的拉丁字符集。是否可导出按当前字体的实际字符覆盖判断。
 - 多行文本、自动换行、长词断行；兼容弯引号、长破折号、省略号与不换行空格。
 - 实时预览；速度、字号、笔画粗细、颜色、行距、对齐、背景及循环设置。
@@ -98,7 +98,16 @@ Satisfy、Pacifico、Parisienne 和 Shadows Into Light 来自 [akzhy/Vara](https
 
 EMS 笔画由 Sheldon B. Michaels 制作、Windell H. Oskay 转换为 SVG，来自 [Evil Mad Scientist 的 SVG 字体库](https://gitlab.com/oskay/svg-fonts/-/tree/8c71f2d9e1a5292047bb88e5595a766241b82cc6/fonts/EMS)。Relief 来自 [isdaT 的 Relief SingleLine 项目](https://github.com/isdat-type/Relief-SingleLine/tree/01dfc5779ec1e9e4b288d96c6c96c23bfccbaf9d)。这些字体及转换后的数据均遵循 SIL OFL 1.1；保留各自的原作者、来源、修改说明和完整许可。
 
-Caveat 原字体由 Impallari Type / The Caveat Project Authors 制作，遵循 SIL OFL 1.1。逐点宽度与笔端数据来自 [Tegaki 的 Caveat 字体包](https://github.com/gkurt/tegaki/tree/32654a4cfb0fa6a2873264cf693316acd59d1627/packages/renderer/fonts/caveat)，固定在提交 `32654a4cfb0fa6a2873264cf693316acd59d1627`；数据是从字形轮廓提取的几何宽度，并非原始触控笔压感。转换保留所有宽度和笔端，只增加兼容现有引擎的中心线与字体度量；许可、来源及修改说明见 `public/fonts/LICENSE-Caveat.txt` 和 `LICENSE-Tegaki.txt`。不引入 Tegaki 运行库或 TTF 运行时解析。
+变宽字体来自 [Tegaki 字体包](https://github.com/gkurt/tegaki/tree/32654a4cfb0fa6a2873264cf693316acd59d1627/packages/renderer/fonts)，统一固定在提交 `32654a4cfb0fa6a2873264cf693316acd59d1627`。4 款原字体均遵循 SIL OFL 1.1：
+
+| 样式 | 风格 | 原字体与作者 | 字体单位 / 空格宽度 |
+| --- | --- | --- | --- |
+| Caveat | 随性手写，自然轻重 | Caveat · Impallari Type / The Caveat Project Authors | 1000 / 242 |
+| Tangerine | 细腻书法，粗细对比鲜明 | Tangerine · Toshi Omagari | 1000 / 150 |
+| Italianno | 流畅的连笔花体 | Italianno · Robert Leuschke / The Italianno Project Authors | 1000 / 169 |
+| Ink Flourish | 自然花体，带装饰回环 | Parisienne · Brian J. Bonislawsky / Astigmatic (AOETI) | 2048 / 600 |
+
+Ink Flourish 是 Parisienne 的转换版本，采用新的主名称以遵循原字体的保留名称要求。逐点宽度是从字形轮廓提取的几何宽度，并非原始触控笔压感。转换保留所有宽度和笔端，只增加兼容现有引擎的中心线与各字体的实际度量；许可、来源及修改说明见 `public/fonts/LICENSE-Caveat.txt`、`LICENSE-Tangerine.txt`、`LICENSE-Italianno.txt`、`LICENSE-Ink-Flourish.txt` 和 `LICENSE-Tegaki.txt`。这些资源按需加载并缓存，不引入 Tegaki 运行库或 TTF 运行时解析。
 
 字体数据在本地随应用分发，按需加载，无需第三方字体服务。来源和完整许可保存在 `public/fonts/` 下，SVG 导出标注实际字体及其来源。
 
@@ -113,10 +122,15 @@ uv run scripts/convert-svg-font.py /path/to/ReliefSingleLineSVG-Regular.svg publ
 
 本项目借鉴笔画 JSON 与 SVG 绘制原理，未引入 Vara.js 运行库。GIF 导出使用 [gifenc](https://github.com/mattdesl/gifenc)，MIT 许可保存在 `public/licenses/LICENSE-gifenc.txt`。
 
-维护 Caveat 时，在上述固定版本的 Tegaki 仓库中取得 `packages/renderer/fonts/caveat/glyphData.json`，使用 Python 3 转换：
+维护变宽字体时，在上述固定版本的 Tegaki 仓库中取得对应的 `glyphData.json`，使用 Python 3 转换；`--units` 和 `--space` 必须取自各原字体的实际度量：
 
 ```sh
-python3 scripts/convert-tegaki-font.py /path/to/tegaki/packages/renderer/fonts/caveat/glyphData.json public/fonts/caveat.json
+python3 scripts/convert-tegaki-font.py /path/to/tegaki/packages/renderer/fonts/caveat/glyphData.json public/fonts/caveat.json --units 1000 --space 242
+python3 scripts/convert-tegaki-font.py /path/to/tegaki/packages/renderer/fonts/tangerine/glyphData.json public/fonts/tangerine.json --units 1000 --space 150 --preserve-bearings
+python3 scripts/convert-tegaki-font.py /path/to/tegaki/packages/renderer/fonts/italianno/glyphData.json public/fonts/italianno.json --units 1000 --space 169 --preserve-bearings
+python3 scripts/convert-tegaki-font.py /path/to/tegaki/packages/renderer/fonts/parisienne/glyphData.json public/fonts/ink-flourish.json --units 2048 --space 600 --preserve-bearings
 ```
+
+`--preserve-bearings` 为花体保留原字体的字符前进宽度和左右留白，避免按笔画边界重新排列造成连笔间隙。
 
 采样点保存在可选的 `FontPath.points`（`[x, y, width]`）中，椭圆笔端保存在 `nibs` 中。`p.bsw` 为这类字体的参考宽度：界面的像素线宽相对它等比例缩放全部采样宽度。缺失字符继续使用现有提示并禁用导出；不混入其他字体。预览与 SVG、PNG、GIF、视频导出共用同一份变宽笔触几何和时间线。

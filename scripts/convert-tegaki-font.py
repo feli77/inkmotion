@@ -10,7 +10,7 @@ def number(value):
     return format(value, '.4f').rstrip('0').rstrip('.') or '0'
 
 
-def convert(source, units, space):
+def convert(source, units, space, preserve_bearings=False):
     characters = {}
     widths = []
     for character, glyph in source.items():
@@ -31,10 +31,13 @@ def convert(source, units, space):
             paths.append(path)
         if paths:
             characters[str(ord(character))] = {'paths': paths, 'w': glyph['w']}
+    metrics = {'tf': units, 'lh': units, 'space': space, 'bsw': statistics.median(widths)}
+    if preserve_bearings:
+        metrics['preserveBearings'] = True
     return {
         'c': dict(sorted(characters.items(), key=lambda item: int(item[0]))),
         # A reference width makes the existing px control scale all native widths equally.
-        'p': {'tf': units, 'lh': units, 'space': space, 'bsw': statistics.median(widths)},
+        'p': metrics,
     }
 
 
@@ -42,10 +45,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('source', type=Path)
     parser.add_argument('output', type=Path)
-    parser.add_argument('--units', type=float, default=1000)
-    parser.add_argument('--space', type=float, default=242, help='Space advance; Caveat uses 242/1000 em')
+    parser.add_argument('--units', type=float, required=True, help='Source font units per em')
+    parser.add_argument('--space', type=float, required=True, help='Source font space advance in font units')
+    parser.add_argument('--preserve-bearings', action='store_true', help='Keep source advances and bearings for connected scripts')
     args = parser.parse_args()
-    data = convert(json.loads(args.source.read_text()), args.units, args.space)
+    data = convert(json.loads(args.source.read_text()), args.units, args.space, args.preserve_bearings)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(data, ensure_ascii=False, separators=(',', ':')) + '\n')
     print(f'{args.output}: {len(data["c"])} glyphs with sampled widths')

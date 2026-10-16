@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test';
+import { fonts } from '../src/fonts';
 import type { BrushPoint, Scene } from '../src/types';
+
+const sampledFonts = fonts.filter(font => font.source.name === 'Tegaki');
 
 const scene: Scene = {
   width: 160, height: 140, scale: 1, duration: 1, text: 'A', unsupported: [],
@@ -18,43 +21,88 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
-test('Caveat switches to native widths, exports standalone SVG and persists the selection', async ({ page }) => {
+for (const definition of sampledFonts) {
+  test(`${definition.name} switches to native widths, exports standalone SVG and persists the selection`, async ({ page }) => {
+    await page.unroute('http://127.0.0.1:5173/');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/');
+    await expect(page.locator('#export')).toBeEnabled();
+    await page.locator('#text').fill('Hello, InkMotion!\nWrite 123.');
+    await page.locator('#font').selectOption(definition.id);
+    await expect(page.locator('#export')).toBeEnabled();
+    await expect(page.locator('#font option:checked')).toContainText(definition.name);
+    await expect(page.locator('#drawing desc')).toContainText(`Tegaki / ${definition.name}`);
+    expect(await page.locator('#drawing animate[attributeName="d"]').count()).toBeGreaterThan(100);
+    for (const mode of ['animated', 'static']) {
+      const downloaded = page.waitForEvent('download');
+      await page.locator(mode === 'animated' ? '#export' : '#export-static').click();
+      const stream = await (await downloaded).createReadStream();
+      let source = '';
+      for await (const chunk of stream!) source += chunk.toString();
+      const result = await page.evaluate(source => {
+        const document = new DOMParser().parseFromString(source, 'image/svg+xml');
+        return {
+          errors: document.querySelectorAll('parsererror, script, image, use').length,
+          shapes: document.querySelectorAll('g[stroke="none"] path').length,
+          animations: document.querySelectorAll('animate').length,
+          metadata: document.querySelector('metadata')?.textContent,
+        };
+      }, source);
+      expect(result.errors).toBe(0);
+      expect(result.shapes).toBeGreaterThan(100);
+      expect(result.animations > 0).toBe(mode === 'animated');
+      expect(result.metadata).toContain(`${definition.name} from Tegaki`);
+    }
+    await page.reload();
+    await expect(page.locator('#font')).toHaveValue(definition.id);
+    await expect(page.locator('#export')).toBeEnabled();
+    await page.locator('#text').fill('[]{}');
+    await expect(page.locator('#warning')).toContainText('[ ] { }');
+    await expect(page.locator('#export')).toBeDisabled();
+  });
+}
+
+for (const definition of sampledFonts.filter(font => font.id !== 'caveat')) {
+  test(`${definition.name} retains source advances and side bearings for connected letters`, async ({ page }) => {
+    const result = await page.evaluate(async ({ definition, settings }) => {
+      const { loadFont, createScene } = await import('/src/engine.ts');
+      const font = await loadFont(definition.url);
+      const scene = createScene(font, 'Make of it.', { ...settings, fontId: definition.id, fontSize: 72, strokeWidth: 1.8, width: 1200 });
+      let index = 0;
+      let advance = 0;
+      const positions = [];
+      for (const character of scene.text) {
+        if (character === ' ') {
+          advance += font.p.space * scene.scale;
+          continue;
+        }
+        const glyph = font.c[String(character.codePointAt(0))];
+        const origin = Number(scene.strokes[index].transform.match(/^translate\(([^ ]+)/)![1]);
+        positions.push({ origin, advance });
+        index += glyph.paths.length;
+        advance += glyph.w * scene.scale;
+      }
+      return positions.map(position => ({ actual: position.origin - positions[0].origin, expected: position.advance }));
+    }, { definition, settings: scene.settings });
+    for (const position of result) expect(position.actual).toBeCloseTo(position.expected, 6);
+  });
+}
+
+test('sampled fonts download on selection and reuse their local cache', async ({ page }) => {
   await page.unroute('http://127.0.0.1:5173/');
-  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const requests: string[] = [];
+  page.on('request', request => {
+    if (request.url().includes('/fonts/')) requests.push(new URL(request.url()).pathname);
+  });
   await page.goto('/');
   await expect(page.locator('#export')).toBeEnabled();
-  await page.locator('#text').fill('Hello, InkMotion!\nWrite 123.');
-  await page.locator('#font').selectOption('caveat');
-  await expect(page.locator('#export')).toBeEnabled();
-  await expect(page.locator('#font option:checked')).toContainText('Caveat');
-  await expect(page.locator('#drawing desc')).toContainText('Tegaki / Caveat');
-  expect(await page.locator('#drawing animate[attributeName="d"]').count()).toBeGreaterThan(100);
-  for (const mode of ['animated', 'static']) {
-    const downloaded = page.waitForEvent('download');
-    await page.locator(mode === 'animated' ? '#export' : '#export-static').click();
-    const stream = await (await downloaded).createReadStream();
-    let source = '';
-    for await (const chunk of stream!) source += chunk.toString();
-    const result = await page.evaluate(source => {
-      const document = new DOMParser().parseFromString(source, 'image/svg+xml');
-      return {
-        errors: document.querySelectorAll('parsererror, script, image, use').length,
-        shapes: document.querySelectorAll('g[stroke="none"] path').length,
-        animations: document.querySelectorAll('animate').length,
-        metadata: document.querySelector('metadata')?.textContent,
-      };
-    }, source);
-    expect(result.errors).toBe(0);
-    expect(result.shapes).toBeGreaterThan(100);
-    expect(result.animations > 0).toBe(mode === 'animated');
-    expect(result.metadata).toContain('Caveat from Tegaki');
+  expect(requests).toEqual(['/fonts/satisfy.json']);
+  for (const definition of [...sampledFonts, ...sampledFonts]) {
+    await page.locator('#font').selectOption(definition.id);
+    await expect(page.locator('#drawing metadata')).toContainText(`Font paths: ${definition.name} from Tegaki`);
+    await expect(page.locator('#export')).toBeEnabled();
   }
-  await page.reload();
-  await expect(page.locator('#font')).toHaveValue('caveat');
-  await expect(page.locator('#export')).toBeEnabled();
-  await page.locator('#text').fill('[]{}');
-  await expect(page.locator('#warning')).toContainText('[ ] { }');
-  await expect(page.locator('#export')).toBeDisabled();
+  expect(requests).toEqual(['/fonts/satisfy.json', ...sampledFonts.map(font => font.url)]);
 });
 
 for (const loop of [false, true]) {
@@ -232,22 +280,25 @@ test('video decodes with the same variable widths and completed drawing', async 
   expect(result.samples[2][2]).toBeLessThan(100);
 });
 
-test('Caveat scales its widths with the thickness control and keeps geometry independent of speed', async ({ page }) => {
-  const result = await page.evaluate(async () => {
-    const { loadFont, createScene } = await import('/src/engine.ts');
-    const font = await loadFont('/fonts/caveat.json');
-    const settings = { fontId: 'caveat', fontSize: 56, strokeWidth: 1.8, speed: 1, color: '#243042', lineHeight: 1.65, alignment: 'left' as const, background: 'transparent', loop: false, width: 400, padding: 24 };
-    const normal = createScene(font, 'Hello.', settings);
-    const fast = createScene(font, 'Hello.', { ...settings, speed: 2 });
-    const thick = createScene(font, 'Hello.', { ...settings, strokeWidth: 3.6 });
-    const widths = (scene: typeof normal) => scene.strokes.flatMap(stroke => stroke.brush!.segments.map(segment => segment.from[2]));
-    return { normal: widths(normal), fast: widths(fast), thick: widths(thick), duration: normal.duration, fastDuration: fast.duration };
+for (const definition of sampledFonts) {
+  test(`${definition.name} scales its widths with the thickness control and keeps geometry independent of speed`, async ({ page }) => {
+    const result = await page.evaluate(async definition => {
+      const { loadFont, createScene } = await import('/src/engine.ts');
+      const font = await loadFont(definition.url);
+      const settings = { fontId: definition.id, fontSize: 56, strokeWidth: 1.8, speed: 1, color: '#243042', lineHeight: 1.65, alignment: 'left' as const, background: 'transparent', loop: false, width: 400, padding: 24 };
+      const normal = createScene(font, 'Hello.', settings);
+      const fast = createScene(font, 'Hello.', { ...settings, speed: 2 });
+      const thick = createScene(font, 'Hello.', { ...settings, strokeWidth: 3.6 });
+      const widths = (scene: typeof normal) => scene.strokes.flatMap(stroke => stroke.brush!.segments.map(segment => segment.from[2]));
+      return { normal: widths(normal), fast: widths(fast), thick: widths(thick), duration: normal.duration, fastDuration: fast.duration };
+    }, definition);
+    expect(new Set(result.normal).size).toBeGreaterThan(10);
+    expect(result.fast).toEqual(result.normal);
+    // Zero-width terminals retain a negligible minimum rather than disappearing.
+    result.thick.forEach((width, index) => expect(width).toBeCloseTo(result.normal[index] * 2, 1));
+    expect(result.fastDuration).toBeCloseTo(result.duration / 2, 8);
   });
-  expect(new Set(result.normal).size).toBeGreaterThan(10);
-  expect(result.fast).toEqual(result.normal);
-  result.thick.forEach((width, index) => expect(width).toBeCloseTo(result.normal[index] * 2, 6));
-  expect(result.fastDuration).toBeCloseTo(result.duration / 2, 8);
-});
+}
 
 test('a font with invalid width samples is rejected and can be retried after correction', async ({ page }) => {
   const font = { c: { '65': { paths: [{ d: 'M0 0L100 0', mx: 0, my: 0, points }], w: 100 } }, p: { tf: 1000, lh: 1000, space: 242, bsw: 8 } };

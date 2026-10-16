@@ -25,6 +25,8 @@ export interface FontData {
     space: number;
     /** For sampled fonts, the reference width scaled by the canvas px control. */
     bsw: number;
+    /** Retain original advances and side bearings for connected script fonts. */
+    preserveBearings?: boolean;
     slc?: string;
     slj?: string;
     s?: number;
