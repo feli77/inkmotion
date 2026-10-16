@@ -1,5 +1,6 @@
 import { t } from './i18n';
 import { fonts } from './fonts';
+import { brushSegmentPath, brushStampPath } from './brush';
 import type { Scene, Stroke } from './types';
 
 export type ExportMode = 'animated' | 'static';
@@ -56,12 +57,63 @@ function color(value: string, fallback: string): string {
   return HEX_COLOR.test(value) ? value : fallback;
 }
 
-function times(stroke: Stroke): { start: number; end: number } {
+function times(stroke: Pick<Stroke, 'start' | 'end'>): { start: number; end: number } {
   const start = Math.max(0, finite(stroke.start));
   return { start, end: Math.max(start + 0.0001, finite(stroke.end, start)) };
 }
 
+function animatedPath(attributes: string, start: number, end: number, loop: boolean, cycle: number, motion?: { attribute: string; from: string; to: string }): string {
+  const reveal = Math.max(start, 0.0001);
+  const initial = motion ? ` ${motion.attribute}="${motion.from}"` : '';
+  let markup = `    <path ${attributes}${initial} opacity="0">\n`;
+  if (!loop) {
+    markup += `      <set attributeName="opacity" to="1" begin="${number(reveal)}s" fill="freeze"/>\n`;
+    if (motion) markup += `      <animate attributeName="${motion.attribute}" from="${motion.from}" to="${motion.to}" begin="${number(start)}s" dur="${number(end - start)}s" calcMode="linear" fill="freeze"/>\n`;
+  } else {
+    const timing = `begin="0s" dur="${number(cycle)}s" repeatCount="indefinite"`;
+    markup += `      <animate attributeName="opacity" values="0;1;1" keyTimes="0;${number(reveal / cycle)};1" calcMode="discrete" ${timing}/>\n`;
+    if (motion) {
+      const values = start > 0 ? `${motion.from};${motion.from};${motion.to};${motion.to}` : `${motion.from};${motion.to};${motion.to}`;
+      const keyTimes = start > 0 ? `0;${number(start / cycle)};${number(end / cycle)};1` : `0;${number(end / cycle)};1`;
+      markup += `      <animate attributeName="${motion.attribute}" values="${values}" keyTimes="${keyTimes}" calcMode="linear" ${timing}/>\n`;
+    }
+  }
+  return markup + '    </path>\n';
+}
+
+function brushSvg(stroke: Stroke, scene: Scene, mode: ExportMode, cycle: number, time?: number): string {
+  const brush = stroke.brush!;
+  const { start, end } = times(stroke);
+  const paths: string[] = [];
+  const complete = mode === 'static' && time === undefined;
+  for (const segment of brush.segments) {
+    const pieceStart = start + (end - start) * segment.start;
+    const pieceEnd = start + (end - start) * segment.end;
+    if (complete || (time !== undefined && time >= pieceEnd)) {
+      paths.push(`    <path d="${brushSegmentPath(segment)}"/>\n`);
+    } else if (time !== undefined) {
+      if (time >= Math.max(pieceStart, 0.0001)) {
+        const progress = Math.max(0, (time - pieceStart) / (pieceEnd - pieceStart));
+        paths.push(`    <path d="${brushSegmentPath(segment, progress)}"/>\n`);
+      }
+    } else {
+      paths.push(animatedPath('', pieceStart, pieceEnd, scene.settings.loop, cycle, {
+        attribute: 'd', from: brushSegmentPath(segment, 0), to: brushSegmentPath(segment),
+      }));
+    }
+  }
+  for (const stamp of brush.stamps) {
+    // Keep endpoint terminals visible when a browser clock rounds the final time.
+    const reveal = Math.max(start, start + (end - start) * stamp.at - 0.000001);
+    const attributes = `d="${brushStampPath(stamp)}"`;
+    if (complete || (time !== undefined && time >= Math.max(reveal, 0.0001))) paths.push(`    <path ${attributes}/>\n`);
+    else if (time === undefined) paths.push(animatedPath(attributes, reveal, end, scene.settings.loop, cycle));
+  }
+  return `  <g transform="${xml(stroke.transform)}" fill="${color(scene.settings.color, FALLBACK_INK)}" stroke="none">\n${paths.join('')}  </g>\n`;
+}
+
 function pathSvg(stroke: Stroke, scene: Scene, mode: ExportMode, cycle: number, time?: number): string {
+  if (stroke.brush) return brushSvg(stroke, scene, mode, cycle, time);
   const attributes = `d="${xml(stroke.d)}" transform="${xml(stroke.transform)}"`;
   if (mode === 'static' && time === undefined) return `    <path ${attributes}/>\n`;
 
@@ -77,26 +129,9 @@ function pathSvg(stroke: Stroke, scene: Scene, mode: ExportMode, cycle: number, 
     const progress = Math.min(1, Math.max(0, (time - start) / (end - start)));
     return `    <path ${attributes} ${dashAttributes} stroke-dashoffset="${number((length + clearance) * (1 - progress))}" opacity="${time >= Math.max(start, 0.0001) ? 1 : 0}"/>\n`;
   }
-  const reveal = Math.max(start, 0.0001);
-  const path = `    <path ${attributes} ${dashAttributes} stroke-dashoffset="${hiddenOffset}" opacity="0">\n`;
-
-  if (!scene.settings.loop) {
-    return path
-      + `      <set attributeName="opacity" to="1" begin="${number(reveal)}s" fill="freeze"/>\n`
-      + `      <animate attributeName="stroke-dashoffset" from="${hiddenOffset}" to="0" begin="${number(start)}s" dur="${number(end - start)}s" calcMode="linear" fill="freeze"/>\n`
-      + '    </path>\n';
-  }
-
-  const dashValues = start > 0 ? `${hiddenOffset};${hiddenOffset};0;0` : `${hiddenOffset};0;0`;
-  const dashTimes = start > 0
-    ? `0;${number(start / cycle)};${number(end / cycle)};1`
-    : `0;${number(end / cycle)};1`;
-  const timing = `begin="0s" dur="${number(cycle)}s" repeatCount="indefinite"`;
-
-  return path
-    + `      <animate attributeName="opacity" values="0;1;1" keyTimes="0;${number(reveal / cycle)};1" calcMode="discrete" ${timing}/>\n`
-    + `      <animate attributeName="stroke-dashoffset" values="${dashValues}" keyTimes="${dashTimes}" calcMode="linear" ${timing}/>\n`
-    + '    </path>\n';
+  return animatedPath(`${attributes} ${dashAttributes}`, start, end, scene.settings.loop, cycle, {
+    attribute: 'stroke-dashoffset', from: hiddenOffset, to: '0',
+  });
 }
 
 /** Self-contained SVG. A time samples a still frame of the same stroke timeline. */

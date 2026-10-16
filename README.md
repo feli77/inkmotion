@@ -1,10 +1,11 @@
 # InkMotion
 
-一个轻量的手写动画网页工具。以 SVG 路径逐笔绘制，支持 Vara 笔画 JSON 和转换后的单线 SVG 字体；使用原生 TypeScript，所有文本处理与导出在浏览器完成。
+一个轻量的手写动画网页工具。以 SVG 路径逐笔绘制，支持 Vara 笔画 JSON、转换后的单线 SVG 字体和带逐点宽度的笔画字体；使用原生 TypeScript，所有文本处理与导出在浏览器完成。
 
 ## 功能
 
-- 12 款笔画字体：原有的 Satisfy、Pacifico、Parisienne、Shadows Into Light，以及 7 款 EMS 字体和 Relief SingleLine；均支持英文字母、数字和全部可打印 ASCII 标点。
+- 13 款笔画字体：Satisfy、Pacifico、Parisienne、Shadows Into Light、7 款 EMS 字体、Relief SingleLine，以及保留自然粗细的 Caveat。原有 12 款支持全部可打印 ASCII 字符。
+- Caveat 使用 Tegaki 提取的逐点宽度与椭圆形笔端，沿书写轨迹保留原字体的粗细变化；「笔画粗细」等比例调整这些宽度。当前包含 90 个字符，支持英文字母、数字及大部分 ASCII 标点，暂不包含 `[]{}` 和带重音的拉丁字母。
 - EMS 字体还包含带重音的拉丁字母；Relief SingleLine 支持更广的拉丁字符集。是否可导出按当前字体的实际字符覆盖判断。
 - 多行文本、自动换行、长词断行；兼容弯引号、长破折号、省略号与不换行空格。
 - 实时预览；速度、字号、笔画粗细、颜色、行距、对齐、背景及循环设置。
@@ -67,7 +68,7 @@ PNG 包含完整书写结果并保留透明度。GIF 按当前书写速度生成
 | 笔画字体 | `src/fonts.ts` | 将兼容 Vara `c/p` 格式的 JSON 放入 `public/fonts/`，注册字体 ID、原名和各语言文案键；保留字体许可。字体按需加载并缓存，选择保存在本地草稿中；SVG 自动标注对应字体来源。 |
 | 导出格式 | `src/export.ts` | 在 `exportFormats` 注册 `ExportAdapter`，返回 `Blob` 或 `Promise<Blob>`；排版和动画核心无需修改。 |
 
-`src/engine.ts` 负责字体测量、排版与确定性笔画时间。`Scene` 是预览和导出共享的数据；预览直接复用 SVG 导出实现，`src/raster.ts` 将同一 SVG 笔画与时序光栅化为 PNG / GIF，`src/video.ts` 通过浏览器原生 `MediaRecorder` 将这些帧录制为视频。GIF 编码器及视频模块按需加载。`src/main.ts` 负责输入和播放器控制，`src/style.css` 负责响应式布局。
+`src/engine.ts` 负责字体测量、排版与确定性笔画时间。`Scene` 是预览和导出共享的数据；变宽字体的几何与边界计算在 `src/brush.ts` 中，沿轨迹分段揭示，交叉处不会提前显示尚未写到的笔段。预览直接复用 SVG 导出实现，`src/raster.ts` 将同一 SVG 笔画与时序光栅化为 PNG / GIF，`src/video.ts` 通过浏览器原生 `MediaRecorder` 将这些帧录制为视频。GIF 编码器及视频模块按需加载。`src/main.ts` 负责输入和播放器控制，`src/style.css` 负责响应式布局。
 
 ## 验证
 
@@ -97,6 +98,8 @@ Satisfy、Pacifico、Parisienne 和 Shadows Into Light 来自 [akzhy/Vara](https
 
 EMS 笔画由 Sheldon B. Michaels 制作、Windell H. Oskay 转换为 SVG，来自 [Evil Mad Scientist 的 SVG 字体库](https://gitlab.com/oskay/svg-fonts/-/tree/8c71f2d9e1a5292047bb88e5595a766241b82cc6/fonts/EMS)。Relief 来自 [isdaT 的 Relief SingleLine 项目](https://github.com/isdat-type/Relief-SingleLine/tree/01dfc5779ec1e9e4b288d96c6c96c23bfccbaf9d)。这些字体及转换后的数据均遵循 SIL OFL 1.1；保留各自的原作者、来源、修改说明和完整许可。
 
+Caveat 原字体由 Impallari Type / The Caveat Project Authors 制作，遵循 SIL OFL 1.1。逐点宽度与笔端数据来自 [Tegaki 的 Caveat 字体包](https://github.com/gkurt/tegaki/tree/32654a4cfb0fa6a2873264cf693316acd59d1627/packages/renderer/fonts/caveat)，固定在提交 `32654a4cfb0fa6a2873264cf693316acd59d1627`；数据是从字形轮廓提取的几何宽度，并非原始触控笔压感。转换保留所有宽度和笔端，只增加兼容现有引擎的中心线与字体度量；许可、来源及修改说明见 `public/fonts/LICENSE-Caveat.txt` 和 `LICENSE-Tegaki.txt`。不引入 Tegaki 运行库或 TTF 运行时解析。
+
 字体数据在本地随应用分发，按需加载，无需第三方字体服务。来源和完整许可保存在 `public/fonts/` 下，SVG 导出标注实际字体及其来源。
 
 维护字体时可用开发脚本重新转换 SVG 字体（需要 [uv](https://docs.astral.sh/uv/)，FontTools 版本已在脚本中固定）：
@@ -109,3 +112,11 @@ uv run scripts/convert-svg-font.py /path/to/ReliefSingleLineSVG-Regular.svg publ
 转换会翻转字体的 Y 轴、保留曲线和字符宽度，并将每次抬笔拆成独立笔画。只收录单个 Unicode 字符，不处理连字和字距对；原始文件使用上述固定版本，许可文件单独保留。日常开发、构建和使用网页均无需 Python 或 FontTools。
 
 本项目借鉴笔画 JSON 与 SVG 绘制原理，未引入 Vara.js 运行库。GIF 导出使用 [gifenc](https://github.com/mattdesl/gifenc)，MIT 许可保存在 `public/licenses/LICENSE-gifenc.txt`。
+
+维护 Caveat 时，在上述固定版本的 Tegaki 仓库中取得 `packages/renderer/fonts/caveat/glyphData.json`，使用 Python 3 转换：
+
+```sh
+python3 scripts/convert-tegaki-font.py /path/to/tegaki/packages/renderer/fonts/caveat/glyphData.json public/fonts/caveat.json
+```
+
+采样点保存在可选的 `FontPath.points`（`[x, y, width]`）中，椭圆笔端保存在 `nibs` 中。`p.bsw` 为这类字体的参考宽度：界面的像素线宽相对它等比例缩放全部采样宽度。缺失字符继续使用现有提示并禁用导出；不混入其他字体。预览与 SVG、PNG、GIF、视频导出共用同一份变宽笔触几何和时间线。
