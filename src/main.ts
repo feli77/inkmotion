@@ -235,6 +235,7 @@ try {
   }
 } catch { /* A private or unavailable storage area should not affect editing. */ }
 
+if (settings.erase) settings.loop = true;
 textInput.value = text;
 fontInput.value = settings.fontId;
 $<HTMLInputElement>('loop').checked = settings.loop;
@@ -278,6 +279,7 @@ function savePaletteColor(control: ColorControl, color: string): void {
 
 function updateLabels(): void {
   $<HTMLInputElement>('loop').checked = settings.loop;
+  $<HTMLInputElement>('loop').disabled = settings.erase === true;
   $('erase-settings').hidden = !settings.erase;
   $('count').textContent = t('text.count', { count: Array.from(textInput.value).length });
   for (const button of alignmentButtons) {

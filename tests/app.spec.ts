@@ -63,32 +63,65 @@ test('empty and unsupported input prevent exporting; draft survives reload', asy
   await expect(page.locator('#drawing title')).toHaveText('A saved thought.');
 });
 
-test('erase settings enable looping once and preserve independent holds and manual loop changes', async ({ page }) => {
+test('erasing locks looping on until disabled and preserves independent holds after reload', async ({ page }) => {
   await expect(page.locator('#erase')).not.toBeChecked();
   await expect(page.locator('#erase-settings')).toBeHidden();
   await expect(page.locator('#loop')).not.toBeChecked();
+  await expect(page.locator('#loop')).toBeEnabled();
   await page.locator('#erase').check();
   await expect(page.locator('#loop')).toBeChecked();
+  await expect(page.locator('#loop')).toBeDisabled();
+  await page.locator('label[for="loop"]').click({ force: true });
+  await expect(page.locator('#loop')).toBeChecked();
+  await page.locator('#speed').focus();
+  await page.keyboard.press('Tab');
+  await expect(page.locator('#erase')).toBeFocused();
   await expect(page.locator('#holdDuration-value')).toHaveValue('1');
   await expect(page.locator('#blankDuration-value')).toHaveValue('1');
   await page.getByRole('spinbutton', { name: '写完停留', exact: true }).fill('1.8');
   await page.getByRole('spinbutton', { name: '空白停留', exact: true }).fill('0.4');
   await expect(page.locator('#blankDuration-value')).toHaveValue('0.4');
-  await page.locator('#loop').uncheck();
   await expect(page.locator('#export')).toBeEnabled();
-  await expect(page.locator('#drawing [repeatCount]')).toHaveCount(0);
+  await expect(page.locator('#drawing [repeatCount="indefinite"]').first()).toBeAttached();
   await page.reload();
   await expect(page.locator('#export')).toBeEnabled();
   await expect(page.locator('#erase')).toBeChecked();
-  await expect(page.locator('#loop')).not.toBeChecked();
+  await expect(page.locator('#loop')).toBeChecked();
+  await expect(page.locator('#loop')).toBeDisabled();
   await expect(page.locator('#holdDuration-value')).toHaveValue('1.8');
   await expect(page.locator('#blankDuration-value')).toHaveValue('0.4');
   await page.locator('#erase').uncheck();
   await expect(page.locator('#erase-settings')).toBeHidden();
+  await expect(page.locator('#loop')).toBeEnabled();
+  await expect(page.locator('#loop')).toBeChecked();
+  await page.locator('#loop').uncheck();
   await expect(page.locator('#loop')).not.toBeChecked();
+  await expect(page.locator('#export')).toBeEnabled();
+  await expect(page.locator('#drawing [repeatCount]')).toHaveCount(0);
   await page.locator('#erase').check();
   await expect(page.locator('#loop')).toBeChecked();
+  await expect(page.locator('#loop')).toBeDisabled();
   await expect(page.locator('#holdDuration-value')).toHaveValue('1.8');
+});
+
+test('older drafts with erasing on and looping off restore with looping enabled in preview and export', async ({ page }) => {
+  await page.evaluate(() => {
+    localStorage.setItem('inkmotion.draft.v1', JSON.stringify({
+      text: 'Old draft', settings: { erase: true, loop: false },
+    }));
+  });
+  await page.reload();
+  await expect(page.locator('#export')).toBeEnabled();
+  await expect(page.locator('#erase')).toBeChecked();
+  await expect(page.locator('#loop')).toBeChecked();
+  await expect(page.locator('#loop')).toBeDisabled();
+  await expect(page.locator('#drawing [repeatCount="indefinite"]').first()).toBeAttached();
+  const downloadEvent = page.waitForEvent('download');
+  await page.locator('#export').click();
+  const stream = await (await downloadEvent).createReadStream();
+  let data = '';
+  for await (const chunk of stream!) data += chunk.toString();
+  expect(data).toContain('repeatCount="indefinite"');
 });
 
 test('compact hold inputs accept zero, normalize values and keep keyboard editing available', async ({ page }) => {
