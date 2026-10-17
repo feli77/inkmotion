@@ -122,10 +122,6 @@ input[type='range']::-moz-range-thumb { width: 10px; height: 10px; background: v
 .numeric-value input::-webkit-inner-spin-button, .numeric-value input::-webkit-outer-spin-button { appearance: none; margin: 0; }
 .numeric-value input:focus-visible { outline: none; }
 .numeric-value:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 4px; }
-.writing-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr)); gap: 18px; }
-.writing-controls .control { display: grid; grid-template-rows: 1fr auto; min-width: 0; }
-.writing-controls .label-row { align-items: center; margin-bottom: 0; }
-.writing-controls label { min-width: 0; overflow-wrap: anywhere; line-height: 1.6; }
 .playback-options { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .playback-options .checkbox-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; margin: 0; padding: 12px 14px; border: 0; border-radius: 11px 11px 0 0; background: transparent; color: var(--accent); font-weight: 400; cursor: pointer; transition: background-color .15s; }
 .playback-options .checkbox-label + .checkbox-label { border-top: 1px solid var(--line); border-radius: 0 0 11px 11px; }

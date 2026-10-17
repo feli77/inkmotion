@@ -120,6 +120,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
                 ${numericControl('fontSize')}
                 ${numericControl('lineHeight')}
               </div>
+              ${numericControl('strokeWidth')}
               <div class="field">
                 <span id="alignment-label" class="field-label" data-i18n="settings.alignment">${t('settings.alignment')}</span>
                 <div id="alignment" class="alignment-controls" role="group" aria-labelledby="alignment-label">
@@ -131,10 +132,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
           <section class="settings-group writing-group" aria-labelledby="writing-title">
             <h3 id="writing-title" class="group-title">${icons.settings}<span data-i18n="settings.writing">${t('settings.writing')}</span></h3>
             <div class="group-fields">
-              <div class="writing-controls">
-                ${numericControl('speed')}
-                ${numericControl('strokeWidth')}
-              </div>
+              ${numericControl('speed')}
               <div class="playback-options">
                 <label class="checkbox-label" for="loop"><span class="option-label">${icons.repeat}<span data-i18n="settings.loop">${t('settings.loop')}</span></span><input id="loop" type="checkbox" /></label>
                 <label class="checkbox-label" for="erase"><span class="option-label">${icons.eraser}<span data-i18n="settings.erase">${t('settings.erase')}</span></span><input id="erase" type="checkbox" aria-controls="erase-settings" /></label>
