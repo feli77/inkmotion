@@ -2,6 +2,10 @@ import type { Scene } from './types';
 
 export const DEFAULT_HOLD_SECONDS = 1;
 
+export function eraseSpeedMultiplier(value: number | undefined): number {
+  return value !== undefined && Number.isFinite(value) ? Math.min(3, Math.max(0.25, value)) : 1;
+}
+
 export function holdSeconds(value: number | undefined): number {
   return value !== undefined && Number.isFinite(value) ? Math.min(30, Math.max(0, value)) : DEFAULT_HOLD_SECONDS;
 }
@@ -14,7 +18,9 @@ export function getTimeline(scene: Scene) {
   );
   const eraseStart = scene.settings.erase && writingDuration > 0
     ? writingDuration + holdSeconds(scene.settings.holdDuration) : undefined;
-  const duration = eraseStart === undefined ? writingDuration : eraseStart + writingDuration;
+  const writingSpeed = Number.isFinite(scene.settings.speed) && scene.settings.speed > 0 ? scene.settings.speed : 1;
+  const eraseScale = writingSpeed / eraseSpeedMultiplier(scene.settings.eraseSpeed);
+  const duration = eraseStart === undefined ? writingDuration : eraseStart + writingDuration * eraseScale;
   const finalHold = eraseStart === undefined ? DEFAULT_HOLD_SECONDS : holdSeconds(scene.settings.blankDuration);
-  return { writingDuration, eraseStart, duration, finalHold, cycle: duration + finalHold };
+  return { writingDuration, eraseStart, eraseScale, duration, finalHold, cycle: duration + finalHold };
 }

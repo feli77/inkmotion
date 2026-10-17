@@ -24,7 +24,7 @@ for (const format of ['mp4', 'webm']) {
   for (const erase of [false, true]) {
     test(`${format.toUpperCase()} decodes with matching stroke timing, a white background and holds with erase=${erase}`, async ({ page }, testInfo) => {
       const result = await page.evaluate(async ({ input, format, erase }) => {
-        input.settings = { ...input.settings, erase, holdDuration: 0.5, blankDuration: 0.75 };
+        input.settings = { ...input.settings, erase, eraseSpeed: 2, holdDuration: 0.5, blankDuration: 0.75 };
         if (format === 'webm') {
           const supported = MediaRecorder.isTypeSupported.bind(MediaRecorder);
           MediaRecorder.isTypeSupported = type => type.startsWith('video/webm') && supported(type);
@@ -49,7 +49,7 @@ for (const format of ['mp4', 'webm']) {
           canvas.height = video.videoHeight;
           const context = canvas.getContext('2d')!;
           const samples = [];
-          for (const time of erase ? [0, 0.5, 1.5, 2.25, 3, 4, 4.75] : [0, 0.5, 1.5, 2.5]) {
+          for (const time of erase ? [0, 0.5, 1.5, 2.25, 2.75, 3.25, 3.75] : [0, 0.5, 1.5, 2.5]) {
             const seeked = new Promise<void>(resolve => { video.onseeked = () => resolve(); });
             video.currentTime = time;
             await seeked;
@@ -76,8 +76,8 @@ for (const format of ['mp4', 'webm']) {
       expect(result.type).toContain(`video/${format}`);
       expect(result.extension).toBe(format);
       expect(result.dimensions).toEqual([242, 122]);
-      expect(result.duration).toBeGreaterThan(erase ? 5.05 : 2.8);
-      expect(result.duration).toBeLessThan(erase ? 5.55 : 3.3);
+      expect(result.duration).toBeGreaterThan(erase ? 4.05 : 2.8);
+      expect(result.duration).toBeLessThan(erase ? 4.55 : 3.3);
       const blank = [255, 255, 255, 255];
       const ink = [36, 48, 66, 255];
       const expected = [

@@ -48,6 +48,8 @@ export interface RenderSettings {
   loop: boolean;
   /** Erase in writing order after holding the completed drawing. */
   erase?: boolean;
+  /** Erasing speed multiplier, independent of writing speed; defaults to 1. */
+  eraseSpeed?: number;
   /** Seconds to hold the completed drawing before erasing; defaults to 1. */
   holdDuration?: number;
   /** Seconds to hold the empty canvas before repeating; defaults to 1. */

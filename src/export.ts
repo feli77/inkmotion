@@ -46,8 +46,8 @@ function positive(value: number, fallback = 1): number {
   return value > 0 && Number.isFinite(value) ? value : fallback;
 }
 
-function number(value: number): string {
-  return value.toFixed(6).replace(/\.?0+$/, '') || '0';
+function number(value: number, precision = 6): string {
+  return value.toFixed(precision).replace(/\.?0+$/, '') || '0';
 }
 
 function color(value: string, fallback: string): string {
@@ -64,26 +64,30 @@ function loopAnimation(attribute: string, frames: [number, string][], cycle: num
   if (frames.at(-1)![0] < cycle) frames.push([cycle, frames.at(-1)![1]]);
   // Zero-length holds share a boundary with the adjacent motion.
   const points = frames.filter((frame, index) => !index || frame[0] !== frames[index - 1][0]);
-  return `      <animate attributeName="${attribute}" values="${points.map(point => point[1]).join(';')}" keyTimes="${points.map(point => number(point[0] / cycle)).join(';')}" calcMode="${mode}" begin="0s" dur="${number(cycle)}s" repeatCount="indefinite"/>\n`;
+  // Preserve short erase intervals so terminal visibility never rounds past the final frame.
+  return `      <animate attributeName="${attribute}" values="${points.map(point => point[1]).join(';')}" keyTimes="${points.map(point => number(point[0] / cycle, 12)).join(';')}" calcMode="${mode}" begin="0s" dur="${number(cycle, 12)}s" repeatCount="indefinite"/>\n`;
 }
 
-function animatedPath(attributes: string, start: number, end: number, loop: boolean, cycle: number, motion?: { attribute: string; from: string; to: string; erased: string }, eraseStart?: number): string {
+function animatedPath(attributes: string, start: number, end: number, loop: boolean, timeline: ReturnType<typeof getTimeline>, motion?: { attribute: string; from: string; to: string; erased: string }): string {
+  const { cycle, eraseStart, eraseScale } = timeline;
+  const eraseBegin = eraseStart === undefined ? undefined : eraseStart + start * eraseScale;
+  const eraseEnd = eraseStart === undefined ? undefined : eraseStart + end * eraseScale;
   const reveal = Math.max(start, 0.0001);
-  const hide = eraseStart === undefined ? undefined : eraseStart + (motion ? end : start);
+  const hide = motion ? eraseEnd : eraseBegin;
   const initial = motion ? ` ${motion.attribute}="${motion.from}"` : '';
   let markup = `    <path ${attributes}${initial} opacity="0">\n`;
   if (!loop) {
     markup += `      <set attributeName="opacity" to="1" begin="${number(reveal)}s" fill="freeze"/>\n`;
     if (hide !== undefined) markup += `      <set attributeName="opacity" to="0" begin="${number(hide)}s" fill="freeze"/>\n`;
     if (motion) markup += `      <animate attributeName="${motion.attribute}" from="${motion.from}" to="${motion.to}" begin="${number(start)}s" dur="${number(end - start)}s" calcMode="linear" fill="freeze"/>\n`;
-    if (motion && eraseStart !== undefined) markup += `      <animate attributeName="${motion.attribute}" from="${motion.to}" to="${motion.erased}" begin="${number(eraseStart + start)}s" dur="${number(end - start)}s" calcMode="linear" fill="freeze"/>\n`;
+    if (motion && eraseBegin !== undefined) markup += `      <animate attributeName="${motion.attribute}" from="${motion.to}" to="${motion.erased}" begin="${number(eraseBegin)}s" dur="${number((end - start) * eraseScale)}s" calcMode="linear" fill="freeze"/>\n`;
   } else {
     const opacity: [number, string][] = [[0, '0'], [reveal, '1']];
     if (hide !== undefined) opacity.push([hide, '0']);
     markup += loopAnimation('opacity', opacity, cycle, 'discrete');
     if (motion) {
       const frames: [number, string][] = [[0, motion.from], [start, motion.from], [end, motion.to]];
-      if (eraseStart !== undefined) frames.push([eraseStart + start, motion.to], [eraseStart + end, motion.erased]);
+      if (eraseBegin !== undefined && eraseEnd !== undefined) frames.push([eraseBegin, motion.to], [eraseEnd, motion.erased]);
       markup += loopAnimation(motion.attribute, frames, cycle, 'linear');
     }
   }
@@ -91,12 +95,12 @@ function animatedPath(attributes: string, start: number, end: number, loop: bool
 }
 
 function brushSvg(stroke: Stroke, scene: Scene, mode: ExportMode, timeline: ReturnType<typeof getTimeline>, time?: number): string {
-  const { cycle, eraseStart } = timeline;
+  const { eraseStart, eraseScale } = timeline;
   const brush = stroke.brush!;
   const { start, end } = times(stroke);
   const paths: string[] = [];
   const complete = mode === 'static' && time === undefined;
-  const eraseTime = time !== undefined && eraseStart !== undefined ? time - eraseStart : undefined;
+  const eraseTime = time !== undefined && eraseStart !== undefined ? (time - eraseStart) / eraseScale : undefined;
   for (const segment of brush.segments) {
     const pieceStart = start + (end - start) * segment.start;
     const pieceEnd = start + (end - start) * segment.end;
@@ -109,24 +113,24 @@ function brushSvg(stroke: Stroke, scene: Scene, mode: ExportMode, timeline: Retu
         paths.push(`    <path d="${brushSegmentPath(segment, progress, erased)}"/>\n`);
       }
     } else {
-      paths.push(animatedPath('', pieceStart, pieceEnd, scene.settings.loop, cycle, {
+      paths.push(animatedPath('', pieceStart, pieceEnd, scene.settings.loop, timeline, {
         attribute: 'd', from: brushSegmentPath(segment, 0), to: brushSegmentPath(segment), erased: brushSegmentPath(segment, 1, 1),
-      }, eraseStart));
+      }));
     }
   }
   for (const stamp of brush.stamps) {
     // Keep endpoint terminals visible when a browser clock rounds the final time.
     const reveal = Math.max(start, start + (end - start) * stamp.at - 0.000001);
     const attributes = `d="${brushStampPath(stamp)}"`;
-    if (complete || (time !== undefined && time >= Math.max(reveal, 0.0001) && (eraseStart === undefined || time < eraseStart + reveal))) paths.push(`    <path ${attributes}/>\n`);
-    else if (time === undefined) paths.push(animatedPath(attributes, reveal, end, scene.settings.loop, cycle, undefined, eraseStart));
+    if (complete || (time !== undefined && time >= Math.max(reveal, 0.0001) && (eraseTime === undefined || eraseTime < reveal))) paths.push(`    <path ${attributes}/>\n`);
+    else if (time === undefined) paths.push(animatedPath(attributes, reveal, end, scene.settings.loop, timeline));
   }
   return `  <g transform="${xml(stroke.transform)}" fill="${color(scene.settings.color, FALLBACK_INK)}" stroke="none">\n${paths.join('')}  </g>\n`;
 }
 
 function pathSvg(stroke: Stroke, scene: Scene, mode: ExportMode, timeline: ReturnType<typeof getTimeline>, time?: number): string {
   if (stroke.brush) return brushSvg(stroke, scene, mode, timeline, time);
-  const { cycle, eraseStart } = timeline;
+  const { eraseStart, eraseScale } = timeline;
   const attributes = `d="${xml(stroke.d)}" transform="${xml(stroke.transform)}"`;
   if (mode === 'static' && time === undefined) return `    <path ${attributes}/>\n`;
 
@@ -140,13 +144,14 @@ function pathSvg(stroke: Stroke, scene: Scene, mode: ExportMode, timeline: Retur
   if (time !== undefined) {
     // Sample the same linear reveal and waiting opacity used by the SMIL below.
     const progress = Math.min(1, Math.max(0, (time - start) / (end - start)));
-    const erased = eraseStart === undefined ? 0 : Math.min(1, Math.max(0, (time - eraseStart - start) / (end - start)));
-    const visible = time >= Math.max(start, 0.0001) && (eraseStart === undefined || time < eraseStart + end);
+    const eraseTime = eraseStart === undefined ? undefined : (time - eraseStart) / eraseScale;
+    const erased = eraseTime === undefined ? 0 : Math.min(1, Math.max(0, (eraseTime - start) / (end - start)));
+    const visible = time >= Math.max(start, 0.0001) && (eraseStart === undefined || time < eraseStart + end * eraseScale);
     return `    <path ${attributes} ${dashAttributes} stroke-dashoffset="${number((length + clearance) * (1 - progress - erased))}" opacity="${visible ? 1 : 0}"/>\n`;
   }
-  return animatedPath(`${attributes} ${dashAttributes}`, start, end, scene.settings.loop, cycle, {
+  return animatedPath(`${attributes} ${dashAttributes}`, start, end, scene.settings.loop, timeline, {
     attribute: 'stroke-dashoffset', from: hiddenOffset, to: '0', erased: `-${hiddenOffset}`,
-  }, eraseStart);
+  });
 }
 
 /** Self-contained SVG. A time samples a still frame of the same stroke timeline. */

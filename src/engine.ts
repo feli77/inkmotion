@@ -1,5 +1,5 @@
 import { exportSvg } from './export';
-import { getTimeline, holdSeconds } from './timeline';
+import { eraseSpeedMultiplier, getTimeline, holdSeconds } from './timeline';
 import { createBrush } from './brush';
 import type { BrushGeometry, FontData, FontGlyph, FontPath, RenderSettings, Scene, Stroke } from './types';
 
@@ -106,6 +106,7 @@ function sanitizeSettings(settings: RenderSettings): RenderSettings {
     padding: finiteClamp(settings.padding, 0, width / 2 - 1, 32),
     alignment: ['left', 'center', 'right'].includes(settings.alignment) ? settings.alignment : 'left',
     erase: settings.erase === true,
+    eraseSpeed: eraseSpeedMultiplier(settings.eraseSpeed),
     holdDuration: holdSeconds(settings.holdDuration),
     blankDuration: holdSeconds(settings.blankDuration),
   };

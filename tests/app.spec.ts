@@ -63,9 +63,14 @@ test('empty and unsupported input prevent exporting; draft survives reload', asy
   await expect(page.locator('#drawing title')).toHaveText('A saved thought.');
 });
 
-test('erasing locks looping on until disabled and preserves independent holds after reload', async ({ page }) => {
+test('smooth looping locks playback and preserves its always-visible settings after reload', async ({ page }) => {
   await expect(page.locator('#erase')).not.toBeChecked();
-  await expect(page.locator('#erase-settings')).toBeHidden();
+  await expect(page.locator('#erase')).toHaveAccessibleName('平滑循环');
+  await expect(page.locator('#erase-settings')).toBeVisible();
+  for (const input of await page.locator('#erase-settings input').all()) {
+    await expect(input).toBeVisible();
+    await expect(input).toBeDisabled();
+  }
   await expect(page.locator('#loop')).not.toBeChecked();
   await expect(page.locator('#loop')).toBeEnabled();
   await page.locator('#erase').check();
@@ -78,9 +83,11 @@ test('erasing locks looping on until disabled and preserves independent holds af
   await expect(page.locator('#erase')).toBeFocused();
   await expect(page.locator('#holdDuration-value')).toHaveValue('1');
   await expect(page.locator('#blankDuration-value')).toHaveValue('1');
+  await page.getByRole('slider', { name: '擦除速度', exact: true }).fill('2');
   await page.getByRole('spinbutton', { name: '写完停留', exact: true }).fill('1.8');
   await page.getByRole('spinbutton', { name: '空白停留', exact: true }).fill('0.4');
   await expect(page.locator('#blankDuration-value')).toHaveValue('0.4');
+  await expect(page.locator('#eraseSpeed-value')).toHaveValue('2');
   await expect(page.locator('#export')).toBeEnabled();
   await expect(page.locator('#drawing [repeatCount="indefinite"]').first()).toBeAttached();
   await page.reload();
@@ -90,8 +97,10 @@ test('erasing locks looping on until disabled and preserves independent holds af
   await expect(page.locator('#loop')).toBeDisabled();
   await expect(page.locator('#holdDuration-value')).toHaveValue('1.8');
   await expect(page.locator('#blankDuration-value')).toHaveValue('0.4');
+  await expect(page.locator('#eraseSpeed-value')).toHaveValue('2');
   await page.locator('#erase').uncheck();
-  await expect(page.locator('#erase-settings')).toBeHidden();
+  await expect(page.locator('#erase-settings')).toBeVisible();
+  for (const input of await page.locator('#erase-settings input').all()) await expect(input).toBeDisabled();
   await expect(page.locator('#loop')).toBeEnabled();
   await expect(page.locator('#loop')).toBeChecked();
   await page.locator('#loop').uncheck();
@@ -102,6 +111,8 @@ test('erasing locks looping on until disabled and preserves independent holds af
   await expect(page.locator('#loop')).toBeChecked();
   await expect(page.locator('#loop')).toBeDisabled();
   await expect(page.locator('#holdDuration-value')).toHaveValue('1.8');
+  await expect(page.locator('#eraseSpeed-value')).toHaveValue('2');
+  for (const input of await page.locator('#erase-settings input').all()) await expect(input).toBeEnabled();
 });
 
 test('older drafts with erasing on and looping off restore with looping enabled in preview and export', async ({ page }) => {
@@ -128,6 +139,10 @@ test('compact hold inputs accept zero, normalize values and keep keyboard editin
   await page.locator('#erase').focus();
   await page.keyboard.press('Space');
   await expect(page.locator('#erase-settings')).toBeVisible();
+  await page.keyboard.press('Tab');
+  await expect(page.locator('#eraseSpeed-value')).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.locator('#eraseSpeed')).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.locator('#holdDuration-value')).toBeFocused();
   for (const key of ['holdDuration', 'blankDuration']) {
@@ -166,7 +181,7 @@ for (const width of [1440, 768, 601, 375, 320]) {
     await page.locator('#text').fill('Hello');
     await page.locator('#erase').check();
     await expect(page.locator('#export')).toBeEnabled();
-    for (const key of ['holdDuration', 'blankDuration']) {
+    for (const key of ['eraseSpeed', 'holdDuration', 'blankDuration']) {
       await expect(page.locator(`#${key}-value`)).toBeVisible();
     }
     const hold = (await page.locator('#holdDuration-value').boundingBox())!;
@@ -293,10 +308,12 @@ test('a video encoder error restores export controls and shows the existing fail
 });
 
 test('numeric settings update the preview, survive reload and stay in sync with sliders', async ({ page }) => {
+  await page.locator('#erase').check();
   const controls = [
     { key: 'fontSize', label: '字号', value: '64', sliderValue: '72' },
     { key: 'lineHeight', label: '行距', value: '2.15', sliderValue: '1.9' },
     { key: 'speed', label: '书写速度', value: '1.75', sliderValue: '2.5' },
+    { key: 'eraseSpeed', label: '擦除速度', value: '1.75', sliderValue: '2.5' },
     { key: 'strokeWidth', label: '笔画粗细', value: '2.6', sliderValue: '3.1' },
   ];
   for (const { key, label, value } of controls) {
@@ -338,10 +355,12 @@ test('numeric settings update the preview, survive reload and stay in sync with 
 });
 
 test('numeric settings preserve unfinished input and normalize committed values', async ({ page }) => {
+  await page.locator('#erase').check();
   const controls = [
     { key: 'fontSize', min: '28', max: '96', unaligned: '65.4', rounded: '65' },
     { key: 'lineHeight', min: '1.3', max: '2.4', unaligned: '1.33', rounded: '1.35' },
     { key: 'speed', min: '0.25', max: '3', unaligned: '1.37', rounded: '1.25' },
+    { key: 'eraseSpeed', min: '0.25', max: '3', unaligned: '1.37', rounded: '1.25' },
     { key: 'strokeWidth', min: '0.8', max: '4', unaligned: '1.86', rounded: '1.9' },
   ];
   for (const { key, min, max, unaligned, rounded } of controls) {
@@ -518,7 +537,7 @@ for (const width of [1440, 900, 761, 760, 375, 320]) {
       expect(box.width).toBeGreaterThanOrEqual(44);
       previousRight = box.x + box.width;
     }
-    const valueAppearances = await editor.locator('.value-input:visible').evaluateAll(elements => elements.map(element => {
+    const valueAppearances = await editor.locator('.value-input:visible:not(.compact-control .value-input)').evaluateAll(elements => elements.map(element => {
       const style = getComputedStyle(element);
       return [style.backgroundColor, style.color, style.border, style.borderRadius, style.fontFamily, style.fontSize, style.padding, element.getBoundingClientRect().height];
     }));

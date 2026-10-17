@@ -23,6 +23,7 @@ const numericSettings = {
   lineHeight: { label: 'settings.lineHeight', min: 1.3, max: 2.4, step: 0.05, unit: '×' },
   speed: { label: 'settings.speed', min: 0.25, max: 3, step: 0.25, unit: '×' },
   strokeWidth: { label: 'settings.stroke', min: 0.8, max: 4, step: 0.1, unit: 'px' },
+  eraseSpeed: { label: 'settings.eraseSpeed', min: 0.25, max: 3, step: 0.25, unit: '×' },
   holdDuration: { label: 'settings.holdDuration', min: 0, max: 30, step: 0.1, unit: 's' },
   blankDuration: { label: 'settings.blankDuration', min: 0, max: 30, step: 0.1, unit: 's' },
 } as const;
@@ -135,11 +136,12 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
               ${numericControl('speed')}
               <div class="playback-options">
                 <label class="checkbox-label" for="loop"><span class="option-label">${icons.repeat}<span data-i18n="settings.loop">${t('settings.loop')}</span></span><input id="loop" type="checkbox" /></label>
-                <label class="checkbox-label" for="erase"><span class="option-label">${icons.eraser}<span data-i18n="settings.erase">${t('settings.erase')}</span></span><input id="erase" type="checkbox" aria-controls="erase-settings" /></label>
-                <div id="erase-settings" class="erase-settings" hidden>
+                <label class="checkbox-label" for="erase"><span class="option-label">${icons.eraser}<span id="smooth-loop-label" data-i18n="settings.erase">${t('settings.erase')}</span></span><input id="erase" type="checkbox" aria-controls="erase-settings" /></label>
+                <fieldset id="erase-settings" class="erase-settings" aria-labelledby="smooth-loop-label" disabled>
+                  ${numericControl('eraseSpeed')}
                   ${numericControl('holdDuration', false)}
                   ${numericControl('blankDuration', false)}
-                </div>
+                </fieldset>
               </div>
             </div>
           </section>
@@ -212,7 +214,7 @@ type ColorControl = typeof colorControls[number];
 const defaults: RenderSettings = {
   fontId: 'satisfy', fontSize: 56, strokeWidth: 1.8, speed: 1, color: '#171717',
   lineHeight: 1.65, alignment: 'left', background: 'transparent', loop: false, width: 720, padding: 32,
-  erase: false, holdDuration: 1, blankDuration: 1,
+  erase: false, eraseSpeed: 1, holdDuration: 1, blankDuration: 1,
 };
 let settings = { ...defaults };
 let text = 'Make something\nworth remembering.';
@@ -280,7 +282,7 @@ function savePaletteColor(control: ColorControl, color: string): void {
 function updateLabels(): void {
   $<HTMLInputElement>('loop').checked = settings.loop;
   $<HTMLInputElement>('loop').disabled = settings.erase === true;
-  $('erase-settings').hidden = !settings.erase;
+  $<HTMLFieldSetElement>('erase-settings').disabled = !settings.erase;
   $('count').textContent = t('text.count', { count: Array.from(textInput.value).length });
   for (const button of alignmentButtons) {
     button.setAttribute('aria-pressed', String(button.dataset.alignment === settings.alignment));
