@@ -29,6 +29,12 @@
   --toggle-border: #555a61;
   --swatch-border: #ffffff26;
 }
+:root.theme-transition::view-transition { pointer-events: none; }
+:root.theme-transition-live { view-transition-name: none; }
+:root.theme-transition::view-transition-group(root),
+:root.theme-transition::view-transition-old(root) { animation: none; mix-blend-mode: normal; }
+:root.theme-transition::view-transition-old(root) { mask-image: url('#theme-brush-mask'); }
+.theme-brush-mask { position: fixed; top: 0; left: 0; width: 0; height: 0; pointer-events: none; }
 * { box-sizing: border-box; }
 body { margin: 0; }
 button, input, select, textarea { font: inherit; }
