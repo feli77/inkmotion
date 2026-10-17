@@ -72,8 +72,7 @@ test('erase settings enable looping once and preserve independent holds and manu
   await expect(page.locator('#holdDuration-value')).toHaveValue('1');
   await expect(page.locator('#blankDuration-value')).toHaveValue('1');
   await page.getByRole('spinbutton', { name: '写完停留', exact: true }).fill('1.8');
-  await page.getByRole('slider', { name: '空白停留', exact: true }).fill('0.4');
-  await expect(page.locator('#holdDuration')).toHaveValue('1.8');
+  await page.getByRole('spinbutton', { name: '空白停留', exact: true }).fill('0.4');
   await expect(page.locator('#blankDuration-value')).toHaveValue('0.4');
   await page.locator('#loop').uncheck();
   await expect(page.locator('#export')).toBeEnabled();
@@ -92,7 +91,42 @@ test('erase settings enable looping once and preserve independent holds and manu
   await expect(page.locator('#holdDuration-value')).toHaveValue('1.8');
 });
 
-for (const width of [1440, 375, 320]) {
+test('compact hold inputs accept zero, normalize values and keep keyboard editing available', async ({ page }) => {
+  await page.locator('#erase').focus();
+  await page.keyboard.press('Space');
+  await expect(page.locator('#erase-settings')).toBeVisible();
+  await page.keyboard.press('Tab');
+  await expect(page.locator('#holdDuration-value')).toBeFocused();
+  for (const key of ['holdDuration', 'blankDuration']) {
+    const input = page.locator(`#${key}-value`);
+    await input.fill('');
+    await input.press('Tab');
+    await expect(input).toHaveValue('1');
+    await input.fill('-1');
+    await input.press('Enter');
+    await expect(input).toHaveValue('0');
+    await input.press('ArrowUp');
+    await expect(input).toHaveValue('0.1');
+    await input.fill('31');
+    await input.press('Enter');
+    await expect(input).toHaveValue('30');
+    await input.fill('1.37');
+    await input.press('Enter');
+    await expect(input).toHaveValue('1.4');
+    await input.fill('0');
+  }
+  await page.locator('#blankDuration-value').press('Tab');
+  await expect(page.locator('#export')).toBeEnabled();
+  await page.reload();
+  await expect(page.locator('#holdDuration-value')).toHaveValue('0');
+  await expect(page.locator('#blankDuration-value')).toHaveValue('0');
+  await page.locator('#erase').focus();
+  await page.keyboard.press('Space');
+  await page.keyboard.press('Tab');
+  await expect(page.locator('#color-value')).toBeFocused();
+});
+
+for (const width of [1440, 768, 601, 375, 320]) {
   test(`erase controls fit at ${width}px and reduced motion holds completed text`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -100,8 +134,14 @@ for (const width of [1440, 375, 320]) {
     await page.locator('#erase').check();
     await expect(page.locator('#export')).toBeEnabled();
     for (const key of ['holdDuration', 'blankDuration']) {
-      await expect(page.locator(`#${key}`)).toBeVisible();
       await expect(page.locator(`#${key}-value`)).toBeVisible();
+    }
+    const hold = (await page.locator('#holdDuration-value').boundingBox())!;
+    const blank = (await page.locator('#blankDuration-value').boundingBox())!;
+    expect(hold.y).toBeCloseTo(blank.y, 1);
+    expect(hold.x + hold.width).toBeLessThan(blank.x);
+    for (const option of await page.locator('.playback-options .checkbox-label').all()) {
+      expect((await option.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     }
     const drawing = page.locator('#drawing > svg');
     expect(await drawing.evaluate((svg: SVGSVGElement) => svg.animationsPaused())).toBe(true);

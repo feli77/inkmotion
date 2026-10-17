@@ -53,15 +53,15 @@ function colorControl(key: ColorSetting): string {
   `;
 }
 
-function numericControl(key: NumericSetting): string {
+function numericControl(key: NumericSetting, slider = true): string {
   const { label, min, max, step, unit } = numericSettings[key];
   return `
-    <div class="control">
+    <div class="control${slider ? '' : ' compact-control'}">
       <div class="label-row">
         <label for="${key}-value" data-i18n="${label}">${t(label)}</label>
         <div class="value-input numeric-value"><input id="${key}-value" type="number" min="${min}" max="${max}" step="${step}" inputmode="${step === 1 ? 'numeric' : 'decimal'}" /><span aria-hidden="true">${unit}</span></div>
       </div>
-      <input id="${key}" type="range" min="${min}" max="${max}" step="${step}" data-i18n-aria-label="${label}" aria-label="${t(label)}" />
+      ${slider ? `<input id="${key}" type="range" min="${min}" max="${max}" step="${step}" data-i18n-aria-label="${label}" aria-label="${t(label)}" />` : ''}
     </div>
   `;
 }
@@ -128,16 +128,20 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
               </div>
             </div>
           </section>
-          <section class="settings-group" aria-labelledby="writing-title">
+          <section class="settings-group writing-group" aria-labelledby="writing-title">
             <h3 id="writing-title" class="group-title">${icons.settings}<span data-i18n="settings.writing">${t('settings.writing')}</span></h3>
             <div class="group-fields">
-              ${numericControl('speed')}
-              ${numericControl('strokeWidth')}
-              <label class="checkbox-label" for="loop"><span data-i18n="settings.loop">${t('settings.loop')}</span><input id="loop" type="checkbox" /></label>
-              <label class="checkbox-label" for="erase"><span data-i18n="settings.erase">${t('settings.erase')}</span><input id="erase" type="checkbox" aria-controls="erase-settings" /></label>
-              <div id="erase-settings" class="group-fields" hidden>
-                ${numericControl('holdDuration')}
-                ${numericControl('blankDuration')}
+              <div class="writing-controls">
+                ${numericControl('speed')}
+                ${numericControl('strokeWidth')}
+              </div>
+              <div class="playback-options">
+                <label class="checkbox-label" for="loop"><span class="option-label">${icons.repeat}<span data-i18n="settings.loop">${t('settings.loop')}</span></span><input id="loop" type="checkbox" /></label>
+                <label class="checkbox-label" for="erase"><span class="option-label">${icons.eraser}<span data-i18n="settings.erase">${t('settings.erase')}</span></span><input id="erase" type="checkbox" aria-controls="erase-settings" /></label>
+                <div id="erase-settings" class="erase-settings" hidden>
+                  ${numericControl('holdDuration', false)}
+                  ${numericControl('blankDuration', false)}
+                </div>
               </div>
             </div>
           </section>
@@ -235,9 +239,6 @@ try {
 
 textInput.value = text;
 fontInput.value = settings.fontId;
-for (const key of numericKeys) {
-  $<HTMLInputElement>(key).value = String(settings[key]);
-}
 $<HTMLInputElement>('loop').checked = settings.loop;
 $<HTMLInputElement>('erase').checked = settings.erase === true;
 
@@ -295,9 +296,11 @@ function updateLabels(): void {
   for (const key of numericKeys) {
     const input = $<HTMLInputElement>(key);
     const valueInput = $<HTMLInputElement>(`${key}-value`);
-    input.value = String(settings[key]);
     if (document.activeElement !== valueInput) valueInput.value = String(settings[key]);
-    input.style.setProperty('--fill', `${(Number(input.value) - Number(input.min)) / (Number(input.max) - Number(input.min)) * 100}%`);
+    if (input) {
+      input.value = String(settings[key]);
+      input.style.setProperty('--fill', `${(Number(input.value) - Number(input.min)) / (Number(input.max) - Number(input.min)) * 100}%`);
+    }
   }
 }
 
@@ -472,7 +475,7 @@ async function selectFont(): Promise<void> {
 
 textInput.addEventListener('input', () => scheduleRender(250));
 for (const key of numericKeys) {
-  $<HTMLInputElement>(key).addEventListener('input', event => {
+  $<HTMLInputElement>(key)?.addEventListener('input', event => {
     settings[key] = Number((event.target as HTMLInputElement).value);
     scheduleRender();
   });

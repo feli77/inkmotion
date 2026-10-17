@@ -1,4 +1,4 @@
-import { Check, ChevronDown, createElement, Download, Languages, Moon, Palette, Plus, RotateCcw, SlidersHorizontal, Sun, TextAlignCenter, TextAlignEnd, TextAlignStart, Type, X } from 'lucide';
+import { Check, ChevronDown, createElement, Download, Eraser, Languages, Moon, Palette, Plus, Repeat2, RotateCcw, SlidersHorizontal, Sun, TextAlignCenter, TextAlignEnd, TextAlignStart, Type, X } from 'lucide';
 import type { IconNode, SVGProps } from 'lucide';
 
 function iconSvg(node: IconNode, attributes: SVGProps = {}): string {
@@ -20,6 +20,8 @@ export const icons = {
   palette: iconSvg(Palette),
   plus: iconSvg(Plus),
   replay: iconSvg(RotateCcw),
+  repeat: iconSvg(Repeat2),
+  eraser: iconSvg(Eraser),
   download: iconSvg(Download),
   languages: iconSvg(Languages),
   sun: iconSvg(Sun),

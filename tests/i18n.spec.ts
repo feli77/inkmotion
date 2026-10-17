@@ -229,12 +229,13 @@ test('keeps language switching and editing usable when local storage is unavaila
   await expect(page.locator('#export')).toBeEnabled();
 });
 
-for (const width of [1440, 768, 375, 320]) {
+for (const width of [1440, 768, 601, 375, 320]) {
   test(`language menu and translated controls fit a ${width}px viewport`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
     await expect(page.locator('#export')).toBeEnabled();
+    await page.locator('#erase').check();
     for (const name of ['Deutsch', 'Русский', '한국어']) {
       await page.locator('#language-toggle').click();
       const menuBox = (await page.locator('#language-menu').boundingBox())!;
@@ -247,6 +248,12 @@ for (const width of [1440, 768, 375, 320]) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       for (const control of await page.locator('.preview-control, .label-row').all()) {
         expect(await control.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+      }
+      const panel = (await page.locator('#erase-settings').boundingBox())!;
+      for (const input of await page.locator('#erase-settings input, .playback-options input[type="checkbox"]').all()) {
+        const box = (await input.boundingBox())!;
+        expect(box.x).toBeGreaterThanOrEqual(panel.x);
+        expect(box.x + box.width).toBeLessThanOrEqual(panel.x + panel.width);
       }
       if (name === 'Deutsch') await page.screenshot({ path: testInfo.outputPath('german-layout.png'), fullPage: true });
     }
