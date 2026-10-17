@@ -23,6 +23,8 @@ const numericSettings = {
   lineHeight: { label: 'settings.lineHeight', min: 1.3, max: 2.4, step: 0.05, unit: '×' },
   speed: { label: 'settings.speed', min: 0.25, max: 3, step: 0.25, unit: '×' },
   strokeWidth: { label: 'settings.stroke', min: 0.8, max: 4, step: 0.1, unit: 'px' },
+  holdDuration: { label: 'settings.holdDuration', min: 0, max: 30, step: 0.1, unit: 's' },
+  blankDuration: { label: 'settings.blankDuration', min: 0, max: 30, step: 0.1, unit: 's' },
 } as const;
 type NumericSetting = keyof typeof numericSettings;
 const numericKeys = Object.keys(numericSettings) as NumericSetting[];
@@ -132,6 +134,11 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
               ${numericControl('speed')}
               ${numericControl('strokeWidth')}
               <label class="checkbox-label" for="loop"><span data-i18n="settings.loop">${t('settings.loop')}</span><input id="loop" type="checkbox" /></label>
+              <label class="checkbox-label" for="erase"><span data-i18n="settings.erase">${t('settings.erase')}</span><input id="erase" type="checkbox" aria-controls="erase-settings" /></label>
+              <div id="erase-settings" class="group-fields" hidden>
+                ${numericControl('holdDuration')}
+                ${numericControl('blankDuration')}
+              </div>
             </div>
           </section>
           <section class="settings-group appearance-group" aria-labelledby="appearance-title">
@@ -203,6 +210,7 @@ type ColorControl = typeof colorControls[number];
 const defaults: RenderSettings = {
   fontId: 'satisfy', fontSize: 56, strokeWidth: 1.8, speed: 1, color: '#171717',
   lineHeight: 1.65, alignment: 'left', background: 'transparent', loop: false, width: 720, padding: 32,
+  erase: false, holdDuration: 1, blankDuration: 1,
 };
 let settings = { ...defaults };
 let text = 'Make something\nworth remembering.';
@@ -220,6 +228,7 @@ try {
     if (['left', 'center', 'right'].includes(saved.alignment)) settings.alignment = saved.alignment;
     if (saved.background === 'transparent' || /^#[0-9a-f]{6}$/i.test(saved.background)) settings.background = saved.background.toLowerCase();
     if (typeof saved.loop === 'boolean') settings.loop = saved.loop;
+    if (typeof saved.erase === 'boolean') settings.erase = saved.erase;
     if (fonts.some(font => font.id === saved.fontId)) settings.fontId = saved.fontId;
   }
 } catch { /* A private or unavailable storage area should not affect editing. */ }
@@ -230,6 +239,7 @@ for (const key of numericKeys) {
   $<HTMLInputElement>(key).value = String(settings[key]);
 }
 $<HTMLInputElement>('loop').checked = settings.loop;
+$<HTMLInputElement>('erase').checked = settings.erase === true;
 
 function normalizeHexColor(value: string): string | undefined {
   const hex = value.trim().replace(/^#/, '');
@@ -268,6 +278,8 @@ function savePaletteColor(control: ColorControl, color: string): void {
 }
 
 function updateLabels(): void {
+  $<HTMLInputElement>('loop').checked = settings.loop;
+  $('erase-settings').hidden = !settings.erase;
   $('count').textContent = t('text.count', { count: Array.from(textInput.value).length });
   for (const button of alignmentButtons) {
     button.setAttribute('aria-pressed', String(button.dataset.alignment === settings.alignment));
@@ -398,6 +410,7 @@ document.querySelector('.language-switcher')!.addEventListener('focusout', event
 });
 
 function render(): void {
+  clearTimeout(renderTimer);
   renderTimer = 0;
   if (!font) return;
   player?.destroy();
@@ -554,6 +567,11 @@ for (const button of alignmentButtons) {
 }
 $<HTMLInputElement>('loop').addEventListener('change', event => {
   settings.loop = (event.target as HTMLInputElement).checked;
+  scheduleRender(0);
+});
+$<HTMLInputElement>('erase').addEventListener('change', event => {
+  settings.erase = (event.target as HTMLInputElement).checked;
+  if (settings.erase) settings.loop = true;
   scheduleRender(0);
 });
 fontInput.addEventListener('change', () => {

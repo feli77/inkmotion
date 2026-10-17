@@ -14,83 +14,91 @@ const scene = {
 };
 
 test.beforeEach(async ({ page }) => {
-  await page.route('http://127.0.0.1:5173/', route => route.fulfill({
+  await page.route('/', route => route.fulfill({
     contentType: 'text/html', body: '<!doctype html><html><body></body></html>',
   }));
   await page.goto('/');
 });
 
 for (const format of ['mp4', 'webm']) {
-  test(`${format.toUpperCase()} decodes with matching stroke timing, a white background and a final hold`, async ({ page }, testInfo) => {
-    const result = await page.evaluate(async ({ input, format }) => {
-      if (format === 'webm') {
-        const supported = MediaRecorder.isTypeSupported.bind(MediaRecorder);
-        MediaRecorder.isTypeSupported = type => type.startsWith('video/webm') && supported(type);
-      }
-      const moduleUrl = '/src/export.ts';
-      const { exportFormats } = await import(moduleUrl);
-      const adapter = exportFormats.video;
-      const blob = await adapter.serialize(input, 'animated');
-      const url = URL.createObjectURL(blob);
-      const video = document.createElement('video');
-      video.muted = true;
-      video.playsInline = true;
-      try {
-        const loaded = new Promise<void>((resolve, reject) => {
-          video.onloadeddata = () => resolve();
-          video.onerror = () => reject(new Error('Exported video cannot be decoded'));
-        });
-        video.src = url;
-        await loaded;
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const context = canvas.getContext('2d')!;
-        const samples = [];
-        for (const time of [0, 0.5, 1.5, 2.5]) {
-          const seeked = new Promise<void>(resolve => { video.onseeked = () => resolve(); });
-          video.currentTime = time;
-          await seeked;
-          context.drawImage(video, 0, 0);
-          const pixel = (x: number, y: number) => [...context.getImageData(x, y, 1, 1).data];
-          samples.push([pixel(0, 0), pixel(40, 40), pixel(60, 40), pixel(40, 70), pixel(60, 70), pixel(241, 121)]);
+  for (const erase of [false, true]) {
+    test(`${format.toUpperCase()} decodes with matching stroke timing, a white background and holds with erase=${erase}`, async ({ page }, testInfo) => {
+      const result = await page.evaluate(async ({ input, format, erase }) => {
+        input.settings = { ...input.settings, erase, holdDuration: 0.5, blankDuration: 0.75 };
+        if (format === 'webm') {
+          const supported = MediaRecorder.isTypeSupported.bind(MediaRecorder);
+          MediaRecorder.isTypeSupported = type => type.startsWith('video/webm') && supported(type);
         }
-        // MediaRecorder WebM files may discover duration only after seeking to their end.
-        if (!Number.isFinite(video.duration)) {
-          const seeked = new Promise<void>(resolve => { video.onseeked = () => resolve(); });
-          video.currentTime = 1e6;
-          await seeked;
+        const moduleUrl = '/src/export.ts';
+        const { exportFormats } = await import(moduleUrl);
+        const adapter = exportFormats.video;
+        const blob = await adapter.serialize(input, 'animated');
+        const url = URL.createObjectURL(blob);
+        const video = document.createElement('video');
+        video.muted = true;
+        video.playsInline = true;
+        try {
+          const loaded = new Promise<void>((resolve, reject) => {
+            video.onloadeddata = () => resolve();
+            video.onerror = () => reject(new Error('Exported video cannot be decoded'));
+          });
+          video.src = url;
+          await loaded;
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const context = canvas.getContext('2d')!;
+          const samples = [];
+          for (const time of erase ? [0, 0.5, 1.5, 2.25, 3, 4, 4.75] : [0, 0.5, 1.5, 2.5]) {
+            const seeked = new Promise<void>(resolve => { video.onseeked = () => resolve(); });
+            video.currentTime = time;
+            await seeked;
+            context.drawImage(video, 0, 0);
+            const pixel = (x: number, y: number) => [...context.getImageData(x, y, 1, 1).data];
+            samples.push([pixel(0, 0), pixel(40, 40), pixel(60, 40), pixel(40, 70), pixel(60, 70), pixel(241, 121)]);
+          }
+          // MediaRecorder WebM files may discover duration only after seeking to their end.
+          if (!Number.isFinite(video.duration)) {
+            const seeked = new Promise<void>(resolve => { video.onseeked = () => resolve(); });
+            video.currentTime = 1e6;
+            await seeked;
+          }
+          return {
+            type: blob.type, extension: adapter.extension, bytes: [...new Uint8Array(await blob.arrayBuffer())],
+            dimensions: [video.videoWidth, video.videoHeight], duration: video.duration, samples,
+          };
+        } finally {
+          video.removeAttribute('src');
+          video.load();
+          URL.revokeObjectURL(url);
         }
-        return {
-          type: blob.type, extension: adapter.extension, bytes: [...new Uint8Array(await blob.arrayBuffer())],
-          dimensions: [video.videoWidth, video.videoHeight], duration: video.duration, samples,
-        };
-      } finally {
-        video.removeAttribute('src');
-        video.load();
-        URL.revokeObjectURL(url);
+      }, { input: scene, format, erase });
+      expect(result.type).toContain(`video/${format}`);
+      expect(result.extension).toBe(format);
+      expect(result.dimensions).toEqual([242, 122]);
+      expect(result.duration).toBeGreaterThan(erase ? 5.05 : 2.8);
+      expect(result.duration).toBeLessThan(erase ? 5.55 : 3.3);
+      const blank = [255, 255, 255, 255];
+      const ink = [36, 48, 66, 255];
+      const expected = [
+        [blank, blank, blank, blank, blank, blank],
+        [blank, ink, blank, blank, blank, blank],
+        [blank, ink, ink, ink, blank, blank],
+        [blank, ink, ink, ink, ink, blank],
+        ...(erase ? [
+          [blank, blank, ink, ink, ink, blank],
+          [blank, blank, blank, blank, ink, blank],
+          [blank, blank, blank, blank, blank, blank],
+        ] : []),
+      ];
+      for (const [index, sample] of result.samples.entries()) {
+        for (const [pixelIndex, pixel] of sample.entries()) {
+          pixel.forEach((channel, channelIndex) => expect(Math.abs(channel - expected[index][pixelIndex][channelIndex])).toBeLessThanOrEqual(18));
+        }
       }
-    }, { input: scene, format });
-    expect(result.type).toContain(`video/${format}`);
-    expect(result.extension).toBe(format);
-    expect(result.dimensions).toEqual([242, 122]);
-    expect(result.duration).toBeGreaterThan(2.8);
-    expect(result.duration).toBeLessThan(3.3);
-    const blank = [255, 255, 255, 255];
-    const ink = [36, 48, 66, 255];
-    const expected = [
-      [blank, blank, blank, blank, blank, blank],
-      [blank, ink, blank, blank, blank, blank],
-      [blank, ink, ink, ink, blank, blank],
-      [blank, ink, ink, ink, ink, blank],
-    ];
-    for (const [index, sample] of result.samples.entries()) {
-      for (const [pixelIndex, pixel] of sample.entries()) {
-        pixel.forEach((channel, channelIndex) => expect(Math.abs(channel - expected[index][pixelIndex][channelIndex])).toBeLessThanOrEqual(18));
-      }
-    }
-    await testInfo.attach(`handwriting.${format}`, { body: Buffer.from(result.bytes), contentType: result.type });
-  });
+      await testInfo.attach(`handwriting.${format}`, { body: Buffer.from(result.bytes), contentType: result.type });
+    });
+  }
 }
 
 test('a failed video recording releases its stream and canvas', async ({ page }) => {

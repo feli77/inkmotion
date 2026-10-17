@@ -1,8 +1,9 @@
-import { exportSvg, getVideoMimeType, LOOP_HOLD_SECONDS } from './export';
+import { exportSvg, getVideoMimeType } from './export';
+import { getTimeline } from './timeline';
 import { createCanvas, drawSvg } from './raster';
 import type { Scene } from './types';
 
-/** Record one writing cycle using native browser codecs, with an opaque background. */
+/** Record one complete animation cycle using native browser codecs. */
 export async function exportVideo(scene: Scene): Promise<Blob> {
   const mimeType = getVideoMimeType();
   if (!mimeType) throw new Error('Video export is unavailable');
@@ -33,17 +34,17 @@ export async function exportVideo(scene: Scene): Promise<Blob> {
         else reject(new Error('Video encoding produced no data'));
       };
     });
-    const duration = scene.strokes.reduce((latest, stroke) => Math.max(latest, stroke.end), Math.max(0, scene.duration));
+    const { duration, cycle } = getTimeline(scene);
     const render = async (): Promise<void> => {
       recording.start();
       const started = performance.now();
       // Redraw during the final hold too, so the encoded video includes that pause.
       while (!disposed) {
         const elapsed = (performance.now() - started) / 1000;
-        if (elapsed >= duration + LOOP_HOLD_SECONDS) break;
+        if (elapsed >= cycle) break;
         if (recording.state !== 'recording') throw new Error('Video recording stopped early');
         const frameStarted = performance.now();
-        await drawSvg(context, elapsed >= duration ? exportSvg(videoScene, 'static') : exportSvg(videoScene, 'animated', elapsed));
+        await drawSvg(context, exportSvg(videoScene, 'animated', Math.min(elapsed, duration)));
         await new Promise(resolve => setTimeout(resolve, Math.max(0, 1000 / 30 - (performance.now() - frameStarted))));
       }
       if (!disposed) recording.stop();

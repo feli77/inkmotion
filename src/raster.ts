@@ -1,4 +1,5 @@
-import { exportSvg, LOOP_HOLD_SECONDS } from './export';
+import { exportSvg } from './export';
+import { getTimeline } from './timeline';
 import type { Scene } from './types';
 
 export function createCanvas(scene: Scene): HTMLCanvasElement {
@@ -61,7 +62,7 @@ export async function exportGif(scene: Scene): Promise<Blob> {
     const colors = quantize(gifPixels(context, transparent), transparent ? 255 : 256, { format });
     const palette = transparent ? [[0, 0, 0, 0], ...colors.filter(color => color[3] > 0)] : colors;
     const gif = GIFEncoder();
-    const duration = scene.strokes.reduce((latest, stroke) => Math.max(latest, stroke.end), Math.max(0, scene.duration));
+    const { duration, finalHold } = getTimeline(scene);
     // Aim for 20 fps. Bound work for long text while retaining its full playback duration.
     const frameCount = Math.max(1, Math.min(599, Math.ceil(duration * 20)));
     const totalTicks = Math.max(frameCount * 2, Math.round(duration * 100));
@@ -71,7 +72,7 @@ export async function exportGif(scene: Scene): Promise<Blob> {
       await drawSvg(context, exportSvg(scene, 'animated', time));
       gif.writeFrame(applyPalette(gifPixels(context, transparent), palette, format), canvas.width, canvas.height, {
         palette: index === 0 ? palette : undefined,
-        delay: index === frameCount ? LOOP_HOLD_SECONDS * 1000 : (Math.round((index + 1) * totalTicks / frameCount) - tick) * 10,
+        delay: index === frameCount ? Math.max(10, finalHold * 1000) : (Math.round((index + 1) * totalTicks / frameCount) - tick) * 10,
         repeat: scene.settings.loop ? 0 : -1,
         transparent,
         transparentIndex: 0,

@@ -15,7 +15,7 @@ const scene: Scene = {
 const points: BrushPoint[] = [[0, 0, 8], [100, 0, 24]];
 
 test.beforeEach(async ({ page }) => {
-  await page.route('http://127.0.0.1:5173/', route => route.fulfill({
+  await page.route('/', route => route.fulfill({
     contentType: 'text/html', body: '<!doctype html><html><body></body></html>',
   }));
   await page.goto('/');
@@ -23,7 +23,7 @@ test.beforeEach(async ({ page }) => {
 
 for (const definition of sampledFonts) {
   test(`${definition.name} switches to native widths, exports standalone SVG and persists the selection`, async ({ page }) => {
-    await page.unroute('http://127.0.0.1:5173/');
+    await page.unroute('/');
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
     await expect(page.locator('#export')).toBeEnabled();
@@ -89,7 +89,7 @@ for (const definition of sampledFonts.filter(font => font.id !== 'caveat')) {
 }
 
 test('sampled fonts download on selection and reuse their local cache', async ({ page }) => {
-  await page.unroute('http://127.0.0.1:5173/');
+  await page.unroute('/');
   const requests: string[] = [];
   page.on('request', request => {
     if (request.url().includes('/fonts/')) requests.push(new URL(request.url()).pathname);

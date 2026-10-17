@@ -63,6 +63,56 @@ test('empty and unsupported input prevent exporting; draft survives reload', asy
   await expect(page.locator('#drawing title')).toHaveText('A saved thought.');
 });
 
+test('erase settings enable looping once and preserve independent holds and manual loop changes', async ({ page }) => {
+  await expect(page.locator('#erase')).not.toBeChecked();
+  await expect(page.locator('#erase-settings')).toBeHidden();
+  await expect(page.locator('#loop')).not.toBeChecked();
+  await page.locator('#erase').check();
+  await expect(page.locator('#loop')).toBeChecked();
+  await expect(page.locator('#holdDuration-value')).toHaveValue('1');
+  await expect(page.locator('#blankDuration-value')).toHaveValue('1');
+  await page.getByRole('spinbutton', { name: '写完停留', exact: true }).fill('1.8');
+  await page.getByRole('slider', { name: '空白停留', exact: true }).fill('0.4');
+  await expect(page.locator('#holdDuration')).toHaveValue('1.8');
+  await expect(page.locator('#blankDuration-value')).toHaveValue('0.4');
+  await page.locator('#loop').uncheck();
+  await expect(page.locator('#export')).toBeEnabled();
+  await expect(page.locator('#drawing [repeatCount]')).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator('#export')).toBeEnabled();
+  await expect(page.locator('#erase')).toBeChecked();
+  await expect(page.locator('#loop')).not.toBeChecked();
+  await expect(page.locator('#holdDuration-value')).toHaveValue('1.8');
+  await expect(page.locator('#blankDuration-value')).toHaveValue('0.4');
+  await page.locator('#erase').uncheck();
+  await expect(page.locator('#erase-settings')).toBeHidden();
+  await expect(page.locator('#loop')).not.toBeChecked();
+  await page.locator('#erase').check();
+  await expect(page.locator('#loop')).toBeChecked();
+  await expect(page.locator('#holdDuration-value')).toHaveValue('1.8');
+});
+
+for (const width of [1440, 375, 320]) {
+  test(`erase controls fit at ${width}px and reduced motion holds completed text`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.locator('#text').fill('Hello');
+    await page.locator('#erase').check();
+    await expect(page.locator('#export')).toBeEnabled();
+    for (const key of ['holdDuration', 'blankDuration']) {
+      await expect(page.locator(`#${key}`)).toBeVisible();
+      await expect(page.locator(`#${key}-value`)).toBeVisible();
+    }
+    const drawing = page.locator('#drawing > svg');
+    expect(await drawing.evaluate((svg: SVGSVGElement) => svg.animationsPaused())).toBe(true);
+    expect(await drawing.evaluate(svg => Number.parseFloat(getComputedStyle(svg.querySelector('path:last-child')!).strokeDashoffset))).toBeCloseTo(0, 3);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath('erase-settings.png'), fullPage: true });
+    await page.locator('#replay').click();
+    expect(await drawing.evaluate((svg: SVGSVGElement) => svg.animationsPaused())).toBe(false);
+  });
+}
+
 for (const format of ['png', 'gif']) {
   test(`${format.toUpperCase()} downloads without showing a success message`, async ({ page }, testInfo) => {
     await page.locator('#text').fill('Hi');
@@ -395,7 +445,7 @@ for (const width of [1440, 900, 761, 760, 375, 320]) {
       expect(box.width).toBeGreaterThanOrEqual(44);
       previousRight = box.x + box.width;
     }
-    const valueAppearances = await editor.locator('.value-input').evaluateAll(elements => elements.map(element => {
+    const valueAppearances = await editor.locator('.value-input:visible').evaluateAll(elements => elements.map(element => {
       const style = getComputedStyle(element);
       return [style.backgroundColor, style.color, style.border, style.borderRadius, style.fontFamily, style.fontSize, style.padding, element.getBoundingClientRect().height];
     }));
@@ -477,7 +527,7 @@ for (const width of [1440, 900, 761, 760, 375, 320]) {
     }
     for (const group of await editor.locator('.settings-group').all()) {
       const groupBox = (await group.boundingBox())!;
-      for (const control of await group.locator('input, select, button').all()) {
+      for (const control of await group.locator('input:visible, select:visible, button:visible').all()) {
         const box = (await control.boundingBox())!;
         expect(box.x).toBeGreaterThanOrEqual(groupBox.x);
         expect(box.x + box.width).toBeLessThanOrEqual(groupBox.x + groupBox.width);

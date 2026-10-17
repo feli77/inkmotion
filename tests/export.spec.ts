@@ -16,7 +16,7 @@ const scene = {
 
 test.beforeEach(async ({ page }) => {
   // Load a blank document so the app's observers cannot interfere with SVG tests.
-  await page.route('http://127.0.0.1:5173/', (route) => route.fulfill({
+  await page.route('/', (route) => route.fulfill({
     contentType: 'text/html',
     body: '<!doctype html><html><body></body></html>',
   }));

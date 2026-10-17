@@ -1,4 +1,5 @@
-import { exportSvg, LOOP_HOLD_SECONDS } from './export';
+import { exportSvg } from './export';
+import { getTimeline, holdSeconds } from './timeline';
 import { createBrush } from './brush';
 import type { BrushGeometry, FontData, FontGlyph, FontPath, RenderSettings, Scene, Stroke } from './types';
 
@@ -104,6 +105,9 @@ function sanitizeSettings(settings: RenderSettings): RenderSettings {
     lineHeight: finiteClamp(settings.lineHeight, 0.8, 3, 1.65),
     padding: finiteClamp(settings.padding, 0, width / 2 - 1, 32),
     alignment: ['left', 'center', 'right'].includes(settings.alignment) ? settings.alignment : 'left',
+    erase: settings.erase === true,
+    holdDuration: holdSeconds(settings.holdDuration),
+    blankDuration: holdSeconds(settings.blankDuration),
   };
 }
 
@@ -297,19 +301,21 @@ export function renderScene(scene: Scene): SVGSVGElement {
 export class Player {
   private playing = false;
   private frame = 0;
+  private readonly timeline: ReturnType<typeof getTimeline>;
 
   constructor(private readonly svg: SVGSVGElement, private readonly scene: Scene) {
+    this.timeline = getTimeline(scene);
     this.svg.pauseAnimations();
     this.svg.setCurrentTime(0);
   }
 
   get currentTime(): number {
     const time = this.svg.getCurrentTime();
-    const cycle = this.scene.duration + (this.scene.settings.loop ? LOOP_HOLD_SECONDS : 0);
+    const { cycle, duration } = this.timeline;
     const position = cycle > 0 && this.scene.settings.loop ? time % cycle : time;
     // Browser SVG clocks use single-precision values. Treat their final tiny
     // rounding difference as completion so play can reliably start again.
-    return position >= this.scene.duration - 0.0001 ? this.scene.duration : position;
+    return position >= duration - 0.0001 ? duration : position;
   }
 
   get isPlaying(): boolean {
@@ -317,8 +323,8 @@ export class Player {
   }
 
   play(): void {
-    if (this.scene.duration === 0 || this.playing) return;
-    if (!this.scene.settings.loop && this.currentTime >= this.scene.duration) this.svg.setCurrentTime(0);
+    if (this.timeline.duration === 0 || this.playing) return;
+    if (!this.scene.settings.loop && this.currentTime >= this.timeline.duration) this.svg.setCurrentTime(0);
     this.playing = true;
     this.svg.unpauseAnimations();
     this.watchEnd();
@@ -337,8 +343,8 @@ export class Player {
   }
 
   seek(seconds: number): void {
-    this.svg.setCurrentTime(finiteClamp(seconds, 0, this.scene.duration, 0));
-    if (!this.scene.settings.loop && this.currentTime >= this.scene.duration) this.pause();
+    this.svg.setCurrentTime(finiteClamp(seconds, 0, this.timeline.duration, 0));
+    if (!this.scene.settings.loop && this.currentTime >= this.timeline.duration) this.pause();
   }
 
   destroy(): void {
@@ -347,8 +353,8 @@ export class Player {
 
   private watchEnd = (): void => {
     if (!this.playing) return;
-    if (!this.scene.settings.loop && this.svg.getCurrentTime() >= this.scene.duration) {
-      this.svg.setCurrentTime(this.scene.duration);
+    if (!this.scene.settings.loop && this.svg.getCurrentTime() >= this.timeline.duration) {
+      this.svg.setCurrentTime(this.timeline.duration);
       this.pause();
       return;
     }

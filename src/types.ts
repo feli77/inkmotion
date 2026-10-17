@@ -46,6 +46,12 @@ export interface RenderSettings {
   alignment: 'left' | 'center' | 'right';
   background: string;
   loop: boolean;
+  /** Erase in writing order after holding the completed drawing. */
+  erase?: boolean;
+  /** Seconds to hold the completed drawing before erasing; defaults to 1. */
+  holdDuration?: number;
+  /** Seconds to hold the empty canvas before repeating; defaults to 1. */
+  blankDuration?: number;
   width: number;
   padding: number;
 }
@@ -89,7 +95,7 @@ export interface Scene {
   width: number;
   height: number;
   strokes: Stroke[];
-  /** Writing duration; a loop's final hold is separate. */
+  /** Writing duration; holding and erasing phases are derived from settings. */
   duration: number;
   text: string;
   unsupported: string[];
