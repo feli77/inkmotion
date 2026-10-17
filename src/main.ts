@@ -6,6 +6,7 @@ import { fonts } from './fonts';
 import { getSelectChevron, icons } from './icons';
 import { getLocale, getPreferredLocale, locales, setLocale, t } from './i18n';
 import { bindPaletteHold } from './palette';
+import { animateThemeChange } from './theme';
 import type { MessageKey } from './i18n';
 import type { FontData, RenderSettings, Scene } from './types';
 
@@ -162,9 +163,9 @@ function updateTheme(): void {
 }
 
 themeToggle.addEventListener('click', () => {
-  preferredTheme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  preferredTheme = (preferredTheme ?? document.documentElement.dataset.theme) === 'dark' ? 'light' : 'dark';
   try { localStorage.setItem(themeStorageKey, preferredTheme); } catch { /* Theme switching still works without storage. */ }
-  updateTheme();
+  animateThemeChange(updateTheme);
 });
 systemTheme.addEventListener('change', () => {
   if (!preferredTheme) updateTheme();
